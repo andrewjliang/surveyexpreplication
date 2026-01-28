@@ -1,0 +1,312 @@
+---
+title: "Power Analysis For Voter Fraud Study"
+author: "Jacob and Gechun and Andy"
+date: "3/24/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Step 1: Load data and basic models
+
+
+Load in the data and fit the baseline model (with no interactions) for power calculations
+
+```{r}
+rm(list = ls())
+
+library(dplyr)
+library(estimatr)
+library(haven)
+library(DeclareDesign)
+library(gridExtra)
+library(ggpubr)
+
+setwd("~/Dropbox/Voter fraud study/Replication/")
+dat <- read_dta("export-for-R.dta")
+
+## Make dem variables
+dat$dem_leaners<-dat$rep_leaners<-dat$independents<-dat$pid7 
+dat$independents<-dat$pid7 
+dat<- dat %>% mutate(dem_leaners = case_when(pid7 == 1 ~ 1,
+                                             pid7 == 2 ~ 1,
+                                             pid7 == 3 ~ 1,
+                                             TRUE ~ 0),
+                     rep_leaners = case_when(pid7 == 5 ~ 1,
+                                             pid7 == 6 ~ 1, 
+                                             pid7 == 7 ~ 1,
+                                             TRUE ~ 0),
+                     independents = case_when(pid7 == 4 ~ 1, 
+                                              pid7 == 8  ~1,
+                                              TRUE~0))
+
+
+
+# Model 1: Fit baseline model for power
+mod1<-summary(lm_robust(zconf_trust ~ tweet4 + tweet8 + tweetcorrect, data = dat))
+mod1
+```
+
+
+
+```{r}
+# Model 2
+mod2<-summary(lm_robust(zconf_trust ~ tweet4*dem_leaners + tweet4*independents + 
+                    tweet8*dem_leaners + tweet8*independents + 
+                    tweetcorrect*dem_leaners + tweetcorrect*independents, data = dat))
+mod2
+```
+
+
+```{r}
+set.seed(1000)
+N <- 4907 ## Size of the complete dataset with no missingness
+
+## SD of the residuals for model 1
+sd.y<-sqrt(mod1$res_var) 
+
+#population <- declare_population(N = N, u = rnorm(N, mean = 0, sd=1.00))
+ate_A <- mod1$coefficients[2,1]  # which is the coefficient of tweet4 (ate_A)
+ate_B <- mod1$coefficients[3,1]  # which is the coefficient of tweet8 (ate_B)
+ate_C <- mod1$coefficients[4,1]# which is the coefficient of tweetcorrect (ate_C)
+
+# Create population
+population <- declare_population(N = N, ate_A=ate_A, ate_B=ate_B, ate_C=ate_C, 
+                                 u = rnorm(N, mean = 0, sd=sd.y))
+
+# Set up potential outcomes table
+potential_outcomes <- declare_potential_outcomes(Y_Z_0 = u,
+                                                 Y_Z_1 = ate_A + u,
+                                                 Y_Z_2 = ate_B + u,
+                                                 Y_Z_3 = ate_C+ u
+                                                 )
+
+## Test if potential outcomes set up correctly -- should all be zero
+j<-potential_outcomes(population())
+mean(j$Y_Z_1-j$Y_Z_0)-ate_A
+mean(j$Y_Z_2-j$Y_Z_0)-ate_B
+mean(j$Y_Z_3-j$Y_Z_0)-ate_C
+
+## Randomization and estimand declaration
+randomization<-declare_assignment(conditions=0:3)
+inquiry <- declare_inquiry(ate_1 = mean(Y_Z_1-Y_Z_0), 
+                              ate_2 = mean(Y_Z_2-Y_Z_0), 
+                               ate_3 = mean(Y_Z_3-Y_Z_0))
+
+## Reveal based on randomization                                                  
+reveal<-declare_reveal(Y, Z)
+
+## Estimate the model
+estimator<-declare_estimator(
+        Y ~ as.factor(Z),
+        model = lm_robust,
+        term=c("as.factor(Z)1", "as.factor(Z)2", "as.factor(Z)3"),
+        inquiry = c("ate_1", "ate_2", "ate_3"))
+
+## Declare the complete design and analysis
+design<-population + potential_outcomes + inquiry+ randomization  + reveal+estimator
+
+## Test simulation
+simulation <- simulate_design(design, sims = 5)
+simulation
+```
+
+
+
+```{r}
+## Make MDE diagnostics for each coefficient
+redesign <- redesign(design, 
+                     ate_A = seq(0, -0.25, by=-0.01))
+redesign$design_1
+new_diagnosis <- diagnose_design(redesign, 
+                                 diagnosands = declare_diagnosands(power = mean(p.value<.05)), 
+                                 sims = 200)
+
+results_ATE1<-new_diagnosis$diagnosands_df %>% filter(inquiry_label=="ate_1")
+tweet4_main<-ggplot(results_ATE1, aes(ate_A, power))+geom_point()+geom_line()+geom_hline(yintercept=.8, lty=2)+geom_vline(xintercept=ate_A, lty=3) +
+  xlab("ATE") +  ylab("Power") + theme(labs(title = NULL)) + theme_bw()
+tweet4_main
+```
+
+
+Now make the other two subplots 
+```{r}
+## Second coef
+redesign <- redesign(design, 
+                     ate_B = seq(0, -0.25, by=-0.01))
+new_diagnosis <- diagnose_design(redesign, 
+                                 diagnosands = declare_diagnosands(power = mean(p.value<.05)), 
+                                 sims = 200)
+
+results_ATE2<-new_diagnosis$diagnosands_df %>% filter(inquiry_label=="ate_2")
+tweet8_main<-ggplot(results_ATE2, aes(ate_B, power))+geom_point()+geom_line()+geom_hline(yintercept=.8, lty=2)+geom_vline(xintercept=ate_B, lty=3) +
+  xlab("ATE") +  ylab("Power") + theme(labs(title = NULL)) + theme_bw()
+tweet8_main
+
+
+## Third coef
+redesign <- redesign(design, 
+                     ate_C = seq(0, -0.25, by=-0.01))
+new_diagnosis <- diagnose_design(redesign, 
+                                 diagnosands = declare_diagnosands(power = mean(p.value<.05)), 
+                                 sims = 200)
+
+results_ATE3<-new_diagnosis$diagnosands_df %>% filter(inquiry_label=="ate_3")
+correction_main<-ggplot(results_ATE3, aes(ate_C, power))+geom_point()+geom_line()+geom_hline(yintercept=.8, lty=2)+geom_vline(xintercept=ate_C, lty=3) +
+  xlab("ATE") +  ylab("Power") + theme(labs(title = NULL)) + theme_bw()
+correction_main
+
+pdf("MainEffectsPower.pdf", width=6, height=6)
+ggarrange(tweet4_main, tweet8_main, correction_main, labels=c("Low dose", "High dose", "Low dose + correction"), ncol=1, nrow=3, vjust=5, hjust=c(-1,-1,-.5))
+dev.off()
+```
+
+# Step 2: Interactions
+
+```{r}
+##############################
+### Now interactions for partisans #
+##############################
+
+set.seed(1000)
+N <- 4907  ### NOte moving sample size to full sample
+
+## SD of the residuals
+sd.y<-sqrt(mod2$res_var) 
+
+#Grab the relevant coefficients; Note we are leaving out the constant
+ate_A <- mod2$coefficients["tweet4",1]  # which is the coefficient of tweet4 (ate_A)
+ate_B <- mod2$coefficients["tweet8",1]  # which is the coefficient of tweet8 (ate_B)
+ate_C <- mod2$coefficients["tweetcorrect",1]# which is the coefficient of tweetcorrect
+covariate1<-mod2$coefficients["dem_leaners",1]
+covariate2<-mod2$coefficients["independents",1]
+ate_A_covariate1 <- mod2$coefficients["tweet4:dem_leaners",1]
+ate_A_covariate2<- mod2$coefficients["tweet4:independents",1]
+ate_B_covariate1<- mod2$coefficients["dem_leaners:tweet8" ,1]
+ate_B_covariate2<- mod2$coefficients["independents:tweet8",1]
+ate_C_covariate1<- mod2$coefficients["dem_leaners:tweetcorrect",1]
+ate_C_covariate2<- mod2$coefficients["independents:tweetcorrect",1]
+
+
+population <- declare_population(N = N, ate_A=ate_A, ate_B=ate_B, ate_C=ate_C,
+                                 covariate1=covariate1,covariate2=covariate2,
+                                 ate_A_covariate1=ate_A_covariate1, ate_A_covariate2=ate_A_covariate2,
+                                 ate_B_covariate1=ate_B_covariate1, ate_B_covariate2=ate_B_covariate2,
+                                 ate_C_covariate1=ate_C_covariate1, ate_C_covariate2=ate_C_covariate2,
+                                 u = rnorm(N, mean = 0, sd=sd.y),# noise
+                                 observed_cov1=dat$dem_leaners, # dem leaners observed
+                                 observed_cov2=dat$independents) #independents observed
+
+
+## Set up potential outcomes for the interaction model
+potential_outcomes <- declare_potential_outcomes(Y_Z_0 = u + covariate1*observed_cov1 + covariate2*observed_cov2,
+                                                 Y_Z_1 = u + covariate1*observed_cov1 + covariate2*observed_cov2 + ate_A + ate_A_covariate1*observed_cov1 +  ate_A_covariate2*observed_cov2,
+                                                 Y_Z_2 = u + covariate1*observed_cov1 + covariate2*observed_cov2 + ate_B + ate_B_covariate1*observed_cov1 +  ate_B_covariate2*observed_cov2,
+                                                 Y_Z_3 = u + covariate1*observed_cov1 + covariate2*observed_cov2 + ate_C + ate_C_covariate1*observed_cov1 +  ate_C_covariate2*observed_cov2
+                                                 )
+
+
+  
+  
+
+## Test if potential outcomes set up correctly -- should all be approx zero
+dems<-population()%>%filter(observed_cov1==1)
+inds<-population()%>%filter(observed_cov2==1)
+
+## Interactions with dems
+p_dems<-potential_outcomes(dems)
+(mean(p_dems$Y_Z_1-p_dems$Y_Z_0)-ate_A)-ate_A_covariate1 
+(mean(p_dems$Y_Z_2-p_dems$Y_Z_0)-ate_B)-ate_B_covariate1 
+(mean(p_dems$Y_Z_3-p_dems$Y_Z_0)-ate_C)-ate_C_covariate1 
+
+## Interactions with inds
+p_inds<-potential_outcomes(inds)
+(mean(p_inds$Y_Z_1-p_inds$Y_Z_0)-ate_A)-ate_A_covariate2 
+(mean(p_inds$Y_Z_2-p_inds$Y_Z_0)-ate_B)-ate_B_covariate2 
+(mean(p_inds$Y_Z_3-p_inds$Y_Z_0)-ate_C)-ate_C_covariate2 
+
+
+## Randomizations
+randomization<-declare_assignment(conditions=0:3)
+
+# Define estimands
+estimands_1 <- declare_inquiry(tweet4_dem = mean(Y_Z_1-Y_Z_0-ate_A),  
+                              tweet8_dem = mean(Y_Z_2-Y_Z_0-ate_B),  
+                              correct_dem = mean(Y_Z_3-Y_Z_0-ate_C),  subset=(observed_cov1==1 & observed_cov2 == 0), 
+                              label="dems")
+estimands_2 <- declare_inquiry(tweet4_ind = mean(Y_Z_1-Y_Z_0-ate_A),  
+                               tweet8_ind = mean(Y_Z_2-Y_Z_0-ate_B),  
+                               correct_ind = mean(Y_Z_3-Y_Z_0-ate_C),  subset=(observed_cov1==0 & observed_cov2 == 1),
+                               label="inds")
+
+## Reveal!                                                      
+reveal<-declare_reveal(Y, Z)
+
+## Estimation procedure
+estimator<-declare_estimator(
+        Y ~ as.factor(Z)*observed_cov1 + as.factor(Z)*observed_cov2,
+        model = lm_robust,
+        term=c("as.factor(Z)1:observed_cov1", "as.factor(Z)2:observed_cov1",
+               "as.factor(Z)3:observed_cov1", "as.factor(Z)1:observed_cov2",
+               "as.factor(Z)2:observed_cov2", "as.factor(Z)3:observed_cov2"),
+        inquiry = c("tweet4_dem", "tweet8_dem", "correct_dem", "tweet4_ind", "tweet8_ind", "correct_ind"))
+
+design<-population + potential_outcomes + estimands_2+estimands_1 + randomization + reveal + estimator
+
+
+simulation <- simulate_design(design, sims = 5)
+simulation
+```
+
+
+
+```{r}
+### We are going to only make the plots here for the democratic interaction terms, as those our primary theoretical interest
+
+## Interaction 1
+redesign <- redesign(design, 
+                     ate_A_covariate1 = seq(0, 0.3, by=0.01)
+                     )
+new_diagnosis <- diagnose_design(redesign, 
+                                 diagnosands = declare_diagnosands(power = mean(p.value<.05)), 
+                                 sims = 400)
+
+results_INTER1<-new_diagnosis$diagnosands_df %>% filter(inquiry_label=="tweet4_dem")
+tweet4_dem<-ggplot(results_INTER1, aes(ate_A_covariate1, power))+geom_point()+geom_line()+geom_hline(yintercept=.8, lty=2)+geom_vline(xintercept=ate_A_covariate1, lty=3) +
+  xlab("Interaction with Dem leaners") +  ylab("Power") + theme(labs(title = NULL)) + theme_bw()
+tweet4_dem
+
+## Interaction 2
+redesign <- redesign(design, 
+                     ate_B_covariate1 = seq(0, 0.3, by=0.01)
+                     )
+new_diagnosis <- diagnose_design(redesign, 
+                                 diagnosands = declare_diagnosands(power = mean(p.value<.05)), 
+                                 sims = 400)
+
+results_INTER2<-new_diagnosis$diagnosands_df %>% filter(inquiry_label=="tweet8_dem")
+tweet8_dem<-ggplot(results_INTER2, aes(ate_B_covariate1, power))+geom_point()+geom_line()+geom_hline(yintercept=.8, lty=2)+geom_vline(xintercept=ate_B_covariate1, lty=3) +
+  xlab("Interaction with Dem leaners") +  ylab("Power") + theme(labs(title = NULL)) + theme_bw()
+tweet8_dem
+
+## Interaction 3
+redesign <- redesign(design, 
+                     ate_C_covariate1 = seq(0, 0.3, by=0.01)
+                     )
+new_diagnosis <- diagnose_design(redesign, 
+                                 diagnosands = declare_diagnosands(power = mean(p.value<.05)), 
+                                 sims = 400)
+
+results_INTER3<-new_diagnosis$diagnosands_df %>% filter(inquiry_label=="correct_dem")
+correction_dem<-ggplot(results_INTER3, aes(ate_C_covariate1, power))+geom_point()+geom_line()+geom_hline(yintercept=.8, lty=2)+geom_vline(xintercept=ate_C_covariate1, lty=3) +
+  xlab("Interaction with Dem leaners") +  ylab("Power") + theme(labs(title = NULL)) + theme_bw()
+correction_dem
+
+pdf("InteractionsPower.pdf", width=6, height=6)
+ggarrange(tweet4_dem, tweet8_dem, correction_dem, labels=c("Dem:Low dose", "Dem:High dose", "Dem:Low dose + correction"), ncol=1, nrow=3, vjust=5, hjust=c(-.5,-.5,-.27))
+dev.off()
+```
+

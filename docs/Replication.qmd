@@ -1,0 +1,92 @@
+---
+title: Replication of @Berlinskietal2023
+author: Andrew J. Liang
+date: today
+format: 
+  pdf:
+    pdf-engine: pdflatex
+    fontfamily: libertine
+bibliography: bibliography.bib
+include-in-header:
+    - text: | 
+        \addtokomafont{disposition}{\rmfamily}
+---
+```{r}
+#| include: false
+#| message: false
+
+# Replication performed on 2022 MacBook Air, M2, 16 G.B. RAM, 512 G.B. SSD
+# macOS Sequoia 15.6
+# Loading packages
+library(tidyverse); library(haven)
+library(fixest); library(here)
+
+here::i_am("docs/Replication.qmd")
+
+main <- read_dta(here("data/Berlinskietal2023", "survey-data.dta"))
+pulse <- read_dta(here("data/Berlinskietal2023", "pulse-data.dta"))
+
+df_combined <- main |> 
+  left_join(pulse, by = "caseid") |>
+  mutate(nopulse_pre = if_else(is.na(totalnewsbinary_presurvey), 1, 0),
+         female = case_when(gender == 1 ~ 0,
+                            gender == 2 ~ 1,
+                            .default = NA), 
+         nonwhite = if_else(race == 1, 0, 1, missing = NA),
+         college = if_else(educ %in% c(5, 6), 1, 0, missing = NA),
+         age = 2018 - birthyr, 
+         agecat = case_when(age > 17 & age <= 24 ~ 1, # 18-24
+                            age > 24 & age <= 44 ~ 2, # 25-44
+                            age > 44 & age <= 64 ~ 3, # 45-64
+                            age > 64 ~ 4, # 65+
+                            .default = NA),
+         agecat1 = if_else(agecat == 1, 1, 0),
+         agecat2 = if_else(agecat == 2, 1, 0),
+         agecat3 = if_else(agecat == 3, 1, 0), 
+         agecat4 = if_else(agecat == 4, 1, 0),
+         ideology = ideo,
+         dem = if_else(pid3 == 1, 1, 0, missing = NA),
+         repub = if_else(pid3 == 2, 1, 0, missing = NA),
+         ind3pt = if_else(pid3 %in% c(3, 4, 5), 1, 0, missing = NA),
+         dem_leaners = if_else(pid7 %in% c(1, 2, 3), 1, 0, missing = NA),
+         repub_leaners = if_else(pid7 %in% c(5, 6, 7), 1, 0, missing = NA),
+         independents = if_else(pid7 %in% c(4, 8), 1, 0, missing = NA),
+         pid3_lean = case_when(dem_leaners == 1 ~ 1,
+                               independents == 1 ~ 2,
+                               repub_leaners == 1 ~ 3),
+         old_trump_approve = trump_approve,
+         trump_approve = case_when(old_trump_approve == 1 ~ 4,
+                                   old_trump_approve == 2 ~ 3,
+                                   old_trump_approve == 3 ~ 2,
+                                   old_trump_approve == 4 ~ 1,
+                                   .default = NA),
+         trump_approve_yn = if_else(old_trump_approve %in% c(1, 2), 1, 0, 
+                                    missing = NA)
+         )
+```
+
+This is a replication proposal and reanalysis of @Berlinskietal2023. Trust in elections has recently been
+
+# Replication
+```{r}
+prop.table(table(df_combined$educ))
+prop.table(table(df_combined$agecat))
+prop.table(table(df_combined$gender))
+prop.table(table(df_combined$pid3))
+
+
+```
+
+
+# Reanalysis
+
+
+# Proposal
+
+
+{{< pagebreak >}}
+
+# References
+
+::: #refs
+:::

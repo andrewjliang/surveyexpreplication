@@ -1,0 +1,11 @@
+voter-fraud.do: Stata do file that creates all of the tables in figures in the main text and appendices.  You will need to change the directory at the top of the file.  Comments throughout explain which table the code refers to.
+
+Note that the tables are not necessarily generated in the same order as in the paper/appendix.  
+
+Note that Table A3 is generated in two different sections of the code.
+
+Note that Table A4 are results provided by YouGov and the script does not replicate this table.
+
+survey-data.tab: The main survey data
+pulse-data.tab: The behavioral/web-browser data
+power.Rmd: The R markdown file for creating the power anlaysis in the appendix. export-for-R.dta: Stripped down version of the survey data for the R power analysis.
