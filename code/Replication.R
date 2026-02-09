@@ -7,12 +7,21 @@
 #################
 
 
+#####
+## Note: the original analysis was performed in Stata; the original code used 
+## by the authors can be found in /data/Berlinskietal2023/voter-fraud.do. I do 
+## not use the trimmed data in the original replication package for the power 
+## analysis, as part of my analysis involves reconstructing the data for the
+## replication.
+#####
+
+
 # Loading packages
 suppressPackageStartupMessages({
 library(tidyverse); library(haven); library(DeclareDesign); library(stargazer)
 library(fixest); library(here); library(modelsummary); library(marginaleffects)
 library(patchwork); library(biostat3); library(cobalt); library(psych);
-library(lavaan); library(texreg); library(marginaleffects)
+library(lavaan); library(texreg); library(marginaleffects); library(car)
 })
   
 # setwd() if needed
@@ -22,8 +31,8 @@ here::i_am("code/Replication.R")
 main <- read_dta(here("data/Berlinskietal2023", "survey-data.dta"))
 pulse <- read_dta(here("data/Berlinskietal2023", "pulse-data.dta"))
 
-df_combined <- main %>%
-  left_join(pulse, by = "caseid") %>%
+df_combined <- main |>
+  left_join(pulse, by = "caseid") |>
   mutate(nopulse_pre = if_else(is.na(totalnewsbinary_presurvey), 1, 0),
          female = case_when(gender == 1 ~ 0, # female
                             gender == 2 ~ 1,
@@ -231,19 +240,19 @@ df_combined$conspiracy_mean <- if_else(is.nan(df_combined$conspiracy_mean), NA,
 
 
 # alpha 
-alpha(df_combined %>% dplyr::select(consp1, consp2, consp3))
-alpha(df_combined %>% dplyr::select(conf1, conf2, conf3, conf4))
-alpha(df_combined %>% dplyr::select(trustelect1, trustelect2, trustelect3))
+alpha(df_combined |> dplyr::select(consp1, consp2, consp3))
+alpha(df_combined |> dplyr::select(conf1, conf2, conf3, conf4))
+alpha(df_combined |> dplyr::select(trustelect1, trustelect2, trustelect3))
 
 # Factor analysis - Table B1
-factors <- df_combined %>% dplyr::select(conf1, conf2, conf3, conf4, 
+factors <- df_combined |> dplyr::select(conf1, conf2, conf3, conf4, 
                                          trustelect1, trustelect2, trustelect3,
                                          democ_imp, polsys1, polsys2, polsys3, 
                                          polsys4)
 
 principal(factors, nfactors = 3, rotate = "varimax")
 
-# Structural Equation Model - Table B2
+# Structural Equation Model for composite outcome - Table B2
 sem_fit <- sem("Conf_trust =~ conf1 + conf2 + conf3 + conf4 +
                 trustelect1 + trustelect2 + trustelect3", 
     data = df_combined, missing = "fiml")
@@ -271,8 +280,7 @@ sum_stats <- data.frame(
   SD = sapply(summary, FUN = sd, na.rm = T),
   Range = sapply(summary, FUN = function(x) 
     paste(range(x, na.rm = T), collapse = ", "))
-  
-) |> as_tibble()
+  ) |> as_tibble()
 
 sum_stats
 
@@ -306,7 +314,9 @@ lincom(lm_robust(conf4 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
                  se_type = "HC2"), c("tweet8-tweet4",
                                      "tweetcorrect-tweet4"))
 
-## Table 2, Column 5
+## Table 2, Column 5 - Replicate
+trust <- lm_robust(trustelect1 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
+                   se_type = "HC2")
 summary(lm_robust(trustelect1 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
                   se_type = "HC2"))
 lincom(lm_robust(trustelect1 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
@@ -328,6 +338,8 @@ lincom(lm_robust(trustelect3 ~ tweet4 + tweet8 + tweetcorrect, data = df_combine
                                      "tweetcorrect-tweet4"))
 
 ## Table 2, Column 8 - Main Analysis
+composite <- lm_robust(zconf_trust ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
+                       se_type = "HC2")
 summary(lm_robust(zconf_trust ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
                     se_type = "HC2"))
 lincom(lm_robust(zconf_trust ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
@@ -347,13 +359,261 @@ plotreg(list(lm_robust(zconf_trust ~ tweet4 + tweet8 + tweetcorrect,
 
 
 # Figure 3 - unable to plot but results should be similar
-fig3a <- lm_robust(zconf_trust ~ (tweet4 + tweet8 + tweetcorrect)*pid3_lean, 
+fig3a <- lm_robust(zconf_trust ~ (tweet4 + tweet8 + tweetcorrect)*dem_leaners + (tweet4 + tweet8 + tweetcorrect)*independents, 
                    df_combined, se_type = "HC2")
 
 fig3b <- lm_robust(zconf_trust ~ (tweet4 + tweet8 + tweetcorrect)*trump_app_yn, 
                    df_combined, se_type = "HC2")
 
 summary(fig3a)
-
 summary(fig3b)
-ss
+
+# Power Calculations
+set.seed(1000)
+N <- 4907
+
+### Table 2, Composite Coefficients as ATE per appendix
+
+### Appendix reports using predicted model to estimate SD of residuals
+sd_y_c <- sqrt(composite$res_var)
+
+ate_Low_c <- composite$coefficients[2] # low
+ate_High_c <- composite$coefficients[3] # high
+ate_Fact_c <- composite$coefficients[4] # low + fact check
+
+replicate_c <- declare_model(N = N, ate_Low_c = ate_Low_c, ate_High_c = ate_High_c, 
+                           ate_Fact_c = ate_Fact_c, 
+              U = rnorm(N, mean = 0, sd = sd_y_c),
+              Y_Z_0 = U,
+              Y_Z_1 = ate_Low_c + U,
+              Y_Z_2 = ate_High_c + U,
+              Y_Z_3 = ate_Fact_c + U) +
+  declare_inquiry(ate_low_c = mean(Y_Z_1 - Y_Z_0),
+                  ate_high_c = mean(Y_Z_2 - Y_Z_0),
+                  ate_fact_c = mean(Y_Z_3 - Y_Z_0)) +
+  declare_assignment(Z = complete_ra(N = N, conditions = 0:3)) +
+  declare_measurement(Y = reveal_outcomes(Y ~ Z)) +
+  declare_estimator(Y ~ as.factor(Z), .method = lm_robust, 
+                    term = c("as.factor(Z)1", "as.factor(Z)2", "as.factor(Z)3"),
+                    inquiry = c("ate_low_c", "ate_high_c", "ate_fact_c"))
+
+d <- draw_data(replicate_c)
+power <- declare_diagnosands(power = mean(p.value < 0.05))
+
+set.seed(1000)
+
+### low dose
+d1_c <- redesign(replicate_c, ate_Low_c = seq(0, -0.25, by = -0.01))
+
+diag_low_c <- diagnose_design(d1_c, 
+                diagnosands = power, 
+                sims = 300)
+
+low_c <- diag_low_c$diagnosands_df |> filter(inquiry == "ate_low_c")
+
+ggplot(low_c, aes(ate_Low_c, power)) + 
+  geom_point() +
+  geom_line() +
+  geom_vline(aes(xintercept = composite$coefficients[2])) +
+  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed")
+
+
+### high dose
+d2_c <- redesign(replicate_c, ate_High_c = seq(0, -0.25, by = -0.01))
+
+diag_high_c <- diagnose_design(d2_c, 
+                            diagnosands = power, 
+                            sims = 300)
+
+high_c <- diag_high_c$diagnosands_df |> filter(inquiry == "ate_high_c")
+
+ggplot(high_c, aes(ate_High_c, power)) + 
+  geom_point() +
+  geom_line() +
+  geom_vline(aes(xintercept = composite$coefficients[3])) +
+  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed")
+
+
+### fact-check dose
+d3_c <- redesign(replicate_c, ate_Fact_c = seq(0, -0.25, by = -0.01))
+
+diag_fact_c <- diagnose_design(d3_c, 
+                             diagnosands = power, 
+                             sims = 300)
+
+fact_c <- diag_fact_c$diagnosands_df |> filter(inquiry == "ate_fact_c")
+
+ggplot(fact_c, aes(ate_Fact_c, power)) + 
+  geom_point() +
+  geom_line() +
+  geom_vline(aes(xintercept = composite$coefficients[4])) +
+  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed")
+
+
+# Table 2, Column 5
+set.seed(1000)
+sd_y_t <- sqrt(trust$res_var)
+
+ate_Low_t <- trust$coefficients[2] # low
+ate_High_t <- trust$coefficients[3] # high
+ate_Fact_t <- trust$coefficients[4] # low + fact check
+
+replicate_t <- declare_model(N = N, ate_Low_t = ate_Low_t, ate_High_t = ate_High_t, 
+                             ate_Fact_t = ate_Fact_t, 
+                             U = rnorm(N, mean = 0, sd = sd_y_t),
+                             Y_Z_0 = U,
+                             Y_Z_1 = ate_Low_t + U,
+                             Y_Z_2 = ate_High_t + U,
+                             Y_Z_3 = ate_Fact_t + U) +
+  declare_inquiry(ate_low_t = mean(Y_Z_1 - Y_Z_0),
+                  ate_high_t = mean(Y_Z_2 - Y_Z_0),
+                  ate_fact_t = mean(Y_Z_3 - Y_Z_0)) +
+  declare_assignment(Z = complete_ra(N = N, conditions = 0:3)) +
+  declare_measurement(Y = reveal_outcomes(Y ~ Z)) +
+  declare_estimator(Y ~ as.factor(Z), .method = lm_robust, 
+                    term = c("as.factor(Z)1", "as.factor(Z)2", "as.factor(Z)3"),
+                    inquiry = c("ate_low_t", "ate_high_t", "ate_fact_t"))
+
+d_t <- draw_data(replicate_t)
+
+set.seed(1000)
+### low dose
+d1_t <- redesign(replicate_t, ate_Low_t = seq(0, -0.25, by = -0.01))
+
+diag_low_t <- diagnose_design(d1_t, 
+                              diagnosands = power, 
+                              sims = 300)
+
+low_t <- diag_low_t$diagnosands_df |> filter(inquiry == "ate_low_t")
+
+ggplot(low_t, aes(ate_Low_t, power)) + 
+  geom_point() +
+  geom_line() +
+  geom_vline(aes(xintercept = trust$coefficients[2])) +
+  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed")
+
+
+### high dose
+d2_t <- redesign(replicate_t, ate_High_t = seq(0, -0.25, by = -0.01))
+
+diag_high_t <- diagnose_design(d2_t, 
+                               diagnosands = power, 
+                               sims = 300)
+
+high_t <- diag_high_t$diagnosands_df |> filter(inquiry == "ate_high_t")
+
+ggplot(high_t, aes(ate_High_t, power)) + 
+  geom_point() +
+  geom_line() +
+  geom_vline(aes(xintercept = trust$coefficients[3])) +
+  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed")
+
+
+### fact-check dose
+d3_t <- redesign(replicate_t, ate_Fact_t = seq(0, -0.25, by = -0.01))
+
+diag_fact_t <- diagnose_design(d3_t, 
+                               diagnosands = power, 
+                               sims = 300)
+
+fact_t <- diag_fact_t$diagnosands_df |> filter(inquiry == "ate_fact_t")
+
+ggplot(fact_t, aes(ate_Fact_t, power)) + 
+  geom_point() +
+  geom_line() +
+  geom_vline(aes(xintercept = trust$coefficients[4])) +
+  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed")
+
+# sample sizes for power
+ss_c <- replicate_c |>
+  redesign(N = seq(4200, 8000, 100)) |>
+  diagnose_designs()
+
+ss_t <- replicate_t |>
+  redesign(N = seq(3000, 40000, 1000)) |>
+  diagnose_designs()
+
+## composite
+pwr_low_c <- ss_c$diagnosands_df |> 
+  filter(inquiry == "ate_low_c") |>
+  ggplot(aes(N, power)) +
+  geom_smooth(method = "loess") +
+  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed") +
+  geom_vline(aes(xintercept = 4907)) +
+  labs(x = "Sample Size",
+       y = "Statistical Power", 
+       title = "ATE for Low Dose, Composite") +
+  theme_minimal()
+
+pwr_high_c <- ss_c$diagnosands_df |> 
+  filter(inquiry == "ate_high_c") |>
+  ggplot(aes(N, power)) +
+  geom_smooth(method = "loess") +
+  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed") +
+  geom_vline(aes(xintercept = 4907)) +
+  labs(x = "Sample Size",
+       y = "Statistical Power",
+       title = "ATE for High Dose, Composite") +
+  theme_minimal()
+
+
+pwr_fact_c <- ss_c$diagnosands_df |> 
+  filter(inquiry == "ate_fact_c") |>
+  ggplot(aes(N, power)) +
+  geom_smooth(method = "loess") +
+  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed") +
+  geom_vline(aes(xintercept = 4907)) +
+  labs(x = "Sample Size",
+       y = "Statistical Power",
+       title = "ATE for Low Dose + Fact-Check, Composite") +
+  theme_minimal()
+
+pwr_c <- (pwr_low_c + pwr_high_c) / pwr_fact_c
+
+ggsave(here("docs", "samplesizepower_composite.png"), plot = pwr_c, units = "in",
+       width = 7, height = 4)
+
+
+## Trust
+pwr_low_t <- ss_t$diagnosands_df |> 
+  filter(inquiry == "ate_low_t") |>
+  ggplot(aes(N, power)) +
+  geom_smooth(method = "loess") +
+  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed") +
+  geom_vline(aes(xintercept = 4907)) +
+  labs(x = "Sample Size",
+       y = "Statistical Power",
+       title = "ATE for Low Dose, Trust") +
+  theme_minimal()
+
+
+pwr_high_t <- ss_t$diagnosands_df |> 
+  filter(inquiry == "ate_high_t") |>
+  ggplot(aes(N, power)) +
+  geom_smooth(method = "loess") +
+  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed") +
+  labs(x = "Sample Size",
+       y = "Statistical Power",
+       title = "ATE for High Dose, Trust") +
+  theme_minimal()
+
+  geom_vline(aes(xintercept = 4907))
+
+pwr_fact_t <- ss_t$diagnosands_df |> 
+  filter(inquiry == "ate_fact_t") |>
+  ggplot(aes(N, power)) +
+  geom_smooth(method = "loess") +
+  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed") +
+  geom_vline(aes(xintercept = 4907)) +
+  labs(x = "Sample Size",
+       y = "Statistical Power",
+       title = "ATE for Low Dose + Fact-Check, Trust") +
+  theme_minimal()
+
+
+
+pwr_graphs <- (pwr_low_t + pwr_low_c) / (pwr_high_t + pwr_high_c) / (pwr_fact_t + pwr_fact_c)
+
+ggsave(here("docs", "pwr.png"), plot = pwr_graphs, units = "in", 
+       width = 8, height = 8)
+
