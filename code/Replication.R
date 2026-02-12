@@ -21,7 +21,8 @@ suppressPackageStartupMessages({
 library(tidyverse); library(haven); library(DeclareDesign); library(stargazer)
 library(fixest); library(here); library(modelsummary); library(marginaleffects)
 library(patchwork); library(biostat3); library(cobalt); library(psych);
-library(lavaan); library(texreg); library(marginaleffects); library(car)
+library(lavaan); library(texreg); library(marginaleffects); library(car);
+library(multcomp)
 })
   
 # setwd() if needed
@@ -145,11 +146,15 @@ df_combined <- main |>
                             conspiracy_3 == 4 ~ 2,
                             conspiracy_3 == 5 ~ 1,
                             .default = NA),
-         tweet_treat = tweet_treat_w2,
-         tweet4 = if_else(tweet_treat == 1, 1, 0, missing = NA),
-         tweet8 = if_else(tweet_treat == 2, 1, 0, missing = NA),
-         tweetcorrect = if_else(tweet_treat == 3, 1, 0, missing = NA),
-         tweetcontrol = if_else(tweet_treat == 4, 1, 0, missing = NA),
+         tweet_treat = case_when(tweet_treat_w2 == 4 ~ 1, # control
+                                 tweet_treat_w2 == 3 ~ 4, # low + fact-check 
+                                 tweet_treat_w2 == 2 ~ 3, # high dose
+                                 tweet_treat_w2 == 1 ~ 2,
+                                 .default = NA), # low dose
+         tweet4 = if_else(tweet_treat_w2 == 1, 1, 0, missing = NA),
+         tweet8 = if_else(tweet_treat_w2 == 2, 1, 0, missing = NA),
+         tweetcorrect = if_else(tweet_treat_w2 == 3, 1, 0, missing = NA),
+         tweetcontrol = if_else(tweet_treat_w2 == 4, 1, 0, missing = NA),
          tweet_news_2018 = case_when(tweet_news_w2 == 3 ~ 1, 
                                      tweet_news_w2 %in% c(1, 2, 4) ~ 0,
                                      .default = NA),
@@ -240,9 +245,9 @@ df_combined$conspiracy_mean <- if_else(is.nan(df_combined$conspiracy_mean), NA,
 
 
 # alpha 
-alpha(df_combined |> dplyr::select(consp1, consp2, consp3))
-alpha(df_combined |> dplyr::select(conf1, conf2, conf3, conf4))
-alpha(df_combined |> dplyr::select(trustelect1, trustelect2, trustelect3))
+psych::alpha(df_combined |> dplyr::select(consp1, consp2, consp3))
+psych::alpha(df_combined |> dplyr::select(conf1, conf2, conf3, conf4))
+psych::alpha(df_combined |> dplyr::select(trustelect1, trustelect2, trustelect3))
 
 # Factor analysis - Table B1
 factors <- df_combined |> dplyr::select(conf1, conf2, conf3, conf4, 
@@ -285,7 +290,7 @@ sum_stats <- data.frame(
 sum_stats
 
 # Treatment Effects
-
+K <- matrix(c(0, -1, 0, 1), 1)
 ## Table 2, Column 1
 summary(lm_robust(conf1 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
                   se_type = "HC2"))
@@ -317,11 +322,12 @@ lincom(lm_robust(conf4 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
 ## Table 2, Column 5 - Replicate
 trust <- lm_robust(trustelect1 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
                    se_type = "HC2")
+trust_highlow <- lm_robust(trustelect1 ~ factor(tweet_treat), data = df_combined |>
+                             filter(tweet_treat %in% c(2, 3)), se_type = "HC2")
+trust_lowfact <- lm_robust(trustelect1 ~ factor(tweet_treat), data = df_combined |>
+                             filter(tweet_treat %in% c(2, 4)), se_type = "HC2")
 summary(lm_robust(trustelect1 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
                   se_type = "HC2"))
-lincom(lm_robust(trustelect1 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
-                 se_type = "HC2"), c("tweet8-tweet4",
-                                     "tweetcorrect-tweet4"))
 
 ## Table 2, Column 6
 summary(lm_robust(trustelect2 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
@@ -342,9 +348,10 @@ composite <- lm_robust(zconf_trust ~ tweet4 + tweet8 + tweetcorrect, data = df_c
                        se_type = "HC2")
 summary(lm_robust(zconf_trust ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
                     se_type = "HC2"))
-lincom(lm_robust(zconf_trust ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
-                 se_type = "HC2"), c("tweet8-tweet4",
-                                     "tweetcorrect-tweet4"))
+comp_highlow <- lm_robust(zconf_trust ~ factor(tweet_treat), data = df_combined |>
+                             filter(tweet_treat %in% c(2, 3)), se_type = "HC2")
+comp_lowfact <- lm_robust(zconf_trust ~ factor(tweet_treat), data = df_combined |>
+                             filter(tweet_treat %in% c(2, 4)), se_type = "HC2")
 
 
 # Figure 2
@@ -611,6 +618,114 @@ pwr_fact_t <- ss_t$diagnosands_df |>
   theme_minimal()
 
 
+# Effect of Fact Check Power Analysis
+### Composite
+set.seed(1000)
+sd_y_clf <- sqrt(comp_lowfact$res_var)
+
+ate_Factlow_c <- comp_lowfact$coefficients[2] 
+
+replicate_clf <- declare_model(N = N, ate_Factlow_c = ate_Factlow_c,
+                             U = rnorm(N, mean = 0, sd = sd_y_clf),
+                             Y_Z_0 = U,
+                             Y_Z_1 = ate_Factlow_c + U) +
+  declare_inquiry(ate_factlow_c = mean(Y_Z_1 - Y_Z_0)) +
+  declare_assignment(Z = complete_ra(N = N, conditions = 0:1)) +
+  declare_measurement(Y = reveal_outcomes(Y ~ Z)) +
+  declare_estimator(Y ~ as.factor(Z), .method = lm_robust, 
+                    term = c("as.factor(Z)1"),
+                    inquiry = c("ate_factlow_c"))
+
+d_clf <- draw_data(replicate_clf)
+
+set.seed(1000)
+
+d1_clf <- redesign(replicate_clf, ate_Factlow_c = seq(0, 0.25, by = 0.01))
+
+diag_factlow_c <- diagnose_design(d1_clf, 
+                              diagnosands = power, 
+                              sims = 300)
+
+factlow_c <- diag_factlow_c$diagnosands_df |> filter(inquiry == "ate_factlow_c")
+
+ggplot(factlow_c, aes(ate_Factlow_c, power)) + 
+  geom_point() +
+  geom_line() +
+  geom_vline(aes(xintercept = comp_lowfact$coefficients[2])) +
+  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed")
+
+### sample sizes for power
+ss_clf <- replicate_clf |>
+  redesign(N = seq(4200, 15000, 100)) |>
+  diagnose_designs()
+
+pwr_factlow_c <- ss_clf$diagnosands_df |> 
+  filter(inquiry == "ate_factlow_c") |>
+  ggplot(aes(N, power)) +
+  geom_smooth(method = "loess") +
+  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed") +
+  geom_vline(aes(xintercept = 4907)) +
+  labs(x = "Sample Size",
+       y = "Statistical Power", 
+       title = "ATE for Low + Fact-Check - Low Dose, Composite") +
+  theme_minimal()
+
+
+
+### Trust
+set.seed(1000)
+sd_y_tlf <- sqrt(trust_lowfact$res_var)
+
+ate_Factlow_t <- trust_lowfact$coefficients[2] 
+
+replicate_tlf <- declare_model(N = N, ate_Factlow_t = ate_Factlow_t,
+                               U = rnorm(N, mean = 0, sd = sd_y_tlf),
+                               Y_Z_0 = U,
+                               Y_Z_1 = ate_Factlow_t + U) +
+  declare_inquiry(ate_factlow_t = mean(Y_Z_1 - Y_Z_0)) +
+  declare_assignment(Z = complete_ra(N = N, conditions = 0:1)) +
+  declare_measurement(Y = reveal_outcomes(Y ~ Z)) +
+  declare_estimator(Y ~ as.factor(Z), .method = lm_robust, 
+                    term = c("as.factor(Z)1"),
+                    inquiry = c("ate_factlow_t"))
+
+d_tlf <- draw_data(replicate_tlf)
+
+set.seed(1000)
+
+d1_tlf <- redesign(replicate_tlf, ate_Factlow_t = seq(0, 0.25, by = 0.01))
+
+diag_factlow_t <- diagnose_design(d1_tlf, 
+                                  diagnosands = power, 
+                                  sims = 300)
+
+factlow_t <- diag_factlow_t$diagnosands_df |> filter(inquiry == "ate_factlow_t")
+
+ggplot(factlow_t, aes(ate_Factlow_t, power)) + 
+  geom_point() +
+  geom_line() +
+  geom_vline(aes(xintercept = trust_lowfact$coefficients[2])) +
+  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed")
+
+### sample sizes for power
+ss_tlf <- replicate_tlf |>
+  redesign(N = seq(4200, 15000, 100)) |>
+  diagnose_designs()
+
+pwr_factlow_t <- ss_tlf$diagnosands_df |> 
+  filter(inquiry == "ate_factlow_t") |>
+  ggplot(aes(N, power)) +
+  geom_smooth(method = "loess") +
+  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed") +
+  geom_vline(aes(xintercept = 4907)) +
+  labs(x = "Sample Size",
+       y = "Statistical Power", 
+       title = "ATE for Low + Fact-Check - Low Dose, Trust") +
+  theme_minimal()
+
+
+
+# Graphs
 
 pwr_graphs <- (pwr_low_t + pwr_low_c) / (pwr_high_t + pwr_high_c) / (pwr_fact_t + pwr_fact_c)
 
