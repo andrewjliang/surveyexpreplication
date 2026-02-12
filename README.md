@@ -1,4 +1,4 @@
-# Who's the Ref? The Effects of Fact-Checking By Different Organizations on Voters' Perception of Election Integrity
+# Who's the Referee? The Effects of Fact-Checking By Different Organizations on Voters' Perception of Election Integrity
 
 This repository holds materials for Andrew J. Liang's proposal submission for the Replication+Novel Survey Experiments competition by Alex Coppock and Mary McGrath. 
 
