@@ -1,3 +1,5 @@
+THIS IS A README FILE FROM THE ORIGINAL DATASET!!!!!
+
 voter-fraud.do: Stata do file that creates all of the tables in figures in the main text and appendices.  You will need to change the directory at the top of the file.  Comments throughout explain which table the code refers to.
 
 Note that the tables are not necessarily generated in the same order as in the paper/appendix.  
