@@ -499,7 +499,7 @@ comp_lowfact_adj <- lm_lin(zconf_trust ~ tweetcorrect, ~ female + nonwhite +
 
 # Power Calculations
 set.seed(92092)
-N <- 4907
+N <- 4283
 
 ### Table 2, Composite Coefficients as ATE per appendix
 
@@ -681,7 +681,7 @@ pwr_low_c <- ss_c$diagnosands_df |>
   ggplot(aes(N, power)) +
   geom_smooth(method = "loess") +
   geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed") +
-  geom_vline(aes(xintercept = 4907)) +
+  geom_vline(aes(xintercept = 4283)) +
   labs(x = "Sample Size",
        y = "Statistical Power", 
        title = "ATE for Low Dose, Composite") +
@@ -692,7 +692,7 @@ pwr_high_c <- ss_c$diagnosands_df |>
   ggplot(aes(N, power)) +
   geom_smooth(method = "loess") +
   geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed") +
-  geom_vline(aes(xintercept = 4907)) +
+  geom_vline(aes(xintercept = 4283)) +
   labs(x = "Sample Size",
        y = "Statistical Power",
        title = "ATE for High Dose, Composite") +
@@ -704,7 +704,7 @@ pwr_fact_c <- ss_c$diagnosands_df |>
   ggplot(aes(N, power)) +
   geom_smooth(method = "loess") +
   geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed") +
-  geom_vline(aes(xintercept = 4907)) +
+  geom_vline(aes(xintercept = 4283)) +
   labs(x = "Sample Size",
        y = "Statistical Power",
        title = "ATE for Low Dose + Fact-Check, Composite") +
@@ -722,7 +722,7 @@ pwr_low_t <- ss_t$diagnosands_df |>
   ggplot(aes(N, power)) +
   geom_smooth(method = "loess") +
   geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed") +
-  geom_vline(aes(xintercept = 4907)) +
+  geom_vline(aes(xintercept = 4283)) +
   labs(x = "Sample Size",
        y = "Statistical Power",
        title = "ATE for Low Dose, Trust") +
@@ -739,14 +739,14 @@ pwr_high_t <- ss_t$diagnosands_df |>
        title = "ATE for High Dose, Trust") +
   theme_minimal()
 
-  geom_vline(aes(xintercept = 4907))
+  geom_vline(aes(xintercept = 4283))
 
 pwr_fact_t <- ss_t$diagnosands_df |> 
   filter(inquiry == "ate_fact_t") |>
   ggplot(aes(N, power)) +
   geom_smooth(method = "loess") +
   geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed") +
-  geom_vline(aes(xintercept = 4907)) +
+  geom_vline(aes(xintercept = 4283)) +
   labs(x = "Sample Size",
        y = "Statistical Power",
        title = "ATE for Low Dose + Fact-Check, Trust") +
@@ -799,7 +799,7 @@ pwr_factlow_c <- ss_clf$diagnosands_df |>
   ggplot(aes(N, power)) +
   geom_smooth(method = "loess") +
   geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed") +
-  geom_vline(aes(xintercept = 4907)) +
+  geom_vline(aes(xintercept = 4283)) +
   labs(x = "Sample Size",
        y = "Statistical Power", 
        title = "ATE for Low + Fact-Check - Low Dose, Composite") +
@@ -851,7 +851,7 @@ pwr_factlow_t <- ss_tlf$diagnosands_df |>
   ggplot(aes(N, power)) +
   geom_smooth(method = "loess") +
   geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed") +
-  geom_vline(aes(xintercept = 4907)) +
+  geom_vline(aes(xintercept = 4283)) +
   labs(x = "Sample Size",
        y = "Statistical Power", 
        title = "ATE for Low + Fact-Check - Low Dose, Trust") +
