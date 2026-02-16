@@ -16,15 +16,15 @@
 #####
 
 
-# Loading packages
+##### Loading packages
 suppressPackageStartupMessages({
 library(tidyverse); library(haven); library(DeclareDesign); library(stargazer)
 library(fixest); library(here); library(modelsummary); library(marginaleffects)
 library(patchwork); library(biostat3); library(cobalt); library(psych);
 library(lavaan); library(texreg); library(marginaleffects); library(car);
-library(multcomp)
+library(multcomp); library(forcats)
 })
-  
+
 # setwd() if needed
 here::i_am("code/Replication.R")
 
@@ -40,6 +40,9 @@ df_combined <- main |>
                             .default = NA), 
          nonwhite = if_else(race == 1, 0, 1, missing = NA), # race
          college = if_else(educ %in% c(5, 6), 1, 0, missing = NA), # education
+         married = case_when(marstat %in% c(1, 6) ~ 1, 
+                             marstat %in% c(2, 3, 4, 5) ~ 0,
+                             .default = NA),
          age = 2018 - birthyr, # age
          agecat = case_when(age > 17 & age <= 24 ~ 1, # 18-24
                             age > 24 & age <= 44 ~ 2, # 25-44
@@ -68,13 +71,14 @@ df_combined <- main |>
                                    .default = NA),
          trump_app_yn = case_when(old_trump_approve %in% c(1, 2) ~ 1,
                                   old_trump_approve %in% c(3, 4) ~ 0,
-                                    .default = NA),
+                                  .default = NA),
          polint = case_when(pol_interest == 1 ~ 5,
                             pol_interest == 2 ~ 4,
                             pol_interest == 3 ~ 3,
                             pol_interest == 4 ~ 2,
                             pol_interest == 5 ~ 1,
                             .default = NA),
+         highpolint = if_else(polint >= 4, 1, 0, missing = NA),
          FT_trump = pol_therm_trump,
          FT_rep = pol_therm_rep,
          FT_dem = pol_therm_dem,
@@ -88,19 +92,24 @@ df_combined <- main |>
          rep_less_dem_w1x = if_else(dem_leaners == 1, 0, rep_less_demw1),
          affect_merged_leanersw1 = dem_less_rep_w1x + rep_less_dem_w1x,
          polknow = 0,
-         polknow = if_else(senator_term == 3, polknow + 1, polknow, missing = polknow),
-         polknow = if_else(pres_term_limit == 2, polknow + 1, polknow, missing = polknow),
-         polknow = if_else(senator_num == 2, polknow + 1, polknow, missing = polknow),
-         polknow = if_else(uk_pm == 4, polknow + 1, polknow, missing = polknow),
-         polknow = if_else(rep_term == 1, polknow + 1, polknow, missing = polknow),
+         polknow = if_else(senator_term == 3, polknow + 1, polknow, 
+                           missing = polknow),
+         polknow = if_else(pres_term_limit == 2, polknow + 1, polknow, 
+                           missing = polknow),
+         polknow = if_else(senator_num == 2, polknow + 1, polknow, 
+                           missing = polknow),
+         polknow = if_else(uk_pm == 4, polknow + 1, polknow, 
+                           missing = polknow),
+         polknow = if_else(rep_term == 1, polknow + 1, polknow, 
+                           missing = polknow),
          massmedia_trust = case_when(media_trust == 1 ~ 4,
                                      media_trust == 2 ~ 3,
                                      media_trust == 3 ~ 2,
                                      media_trust == 4 ~ 1),
          fbtrust = case_when(fb_trust == 1 ~ 4,
-                              fb_trust == 2 ~ 3,
-                              fb_trust == 3 ~ 2,
-                              fb_trust == 4 ~ 1),
+                             fb_trust == 2 ~ 3,
+                             fb_trust == 3 ~ 2,
+                             fb_trust == 4 ~ 1),
          fb_use = case_when(fb_freq == 1 ~ 9,
                             fb_freq == 2 ~ 8,
                             fb_freq == 3 ~ 7,
@@ -149,8 +158,8 @@ df_combined <- main |>
          tweet_treat = case_when(tweet_treat_w2 == 4 ~ 1, # control
                                  tweet_treat_w2 == 3 ~ 4, # low + fact-check 
                                  tweet_treat_w2 == 2 ~ 3, # high dose
-                                 tweet_treat_w2 == 1 ~ 2,
-                                 .default = NA), # low dose
+                                 tweet_treat_w2 == 1 ~ 2, # low dose
+                                 .default = NA), 
          tweet4 = if_else(tweet_treat_w2 == 1, 1, 0, missing = NA),
          tweet8 = if_else(tweet_treat_w2 == 2, 1, 0, missing = NA),
          tweetcorrect = if_else(tweet_treat_w2 == 3, 1, 0, missing = NA),
@@ -159,7 +168,8 @@ df_combined <- main |>
                                      tweet_news_w2 %in% c(1, 2, 4) ~ 0,
                                      .default = NA),
          tweet_news_control = case_when(tweet_accuracy_control_2_w2 == 1 ~ 1,
-                                        tweet_accuracy_control_2_w2 %in% c(2, 3, 4) ~ 0,
+                                        tweet_accuracy_control_2_w2 %in% 
+                                          c(2, 3, 4) ~ 0,
                                         .default = NA),
          massmedia_trustw2 = case_when(media_trust_w2 == 1 ~ 4,
                                        media_trust_w2 == 2 ~ 3,
@@ -204,13 +214,13 @@ df_combined <- main |>
                            system_works_w2 == 4 ~ 1,
                            .default = NA),
          trustelect1 = case_when(trust_elections_w2 == 1 ~ 1,
-                               trust_elections_w2 == 2 ~ 2,
-                               trust_elections_w2 == 3 ~ 3,
-                               trust_elections_w2 == 4 ~ 4,
-                               trust_elections_w2 == 5 ~ 5,
-                               trust_elections_w2 == 6 ~ 6,
-                               trust_elections_w2 == 7 ~ 7,
-                               .default = NA),
+                                 trust_elections_w2 == 2 ~ 2,
+                                 trust_elections_w2 == 3 ~ 3,
+                                 trust_elections_w2 == 4 ~ 4,
+                                 trust_elections_w2 == 5 ~ 5,
+                                 trust_elections_w2 == 6 ~ 6,
+                                 trust_elections_w2 == 7 ~ 7,
+                                 .default = NA),
          trustelect2 = case_when(secure_ballot_w2 == 1 ~ 5,
                                  secure_ballot_w2 == 2 ~ 4,
                                  secure_ballot_w2 == 3 ~ 3,
@@ -232,7 +242,8 @@ df_combined <- main |>
                              polsystem_w2_4 == 3 ~ 2,
                              polsystem_w2_4 == 4 ~ 1),
          missing = as.integer(if_all(all_of(c("conf1","conf2","conf3","conf4",
-           "trustelect1","trustelect2","trustelect3")), is.na))
+                                              "trustelect1","trustelect2",
+                                              "trustelect3")), is.na))
          
   )
 
@@ -247,7 +258,8 @@ df_combined$conspiracy_mean <- if_else(is.nan(df_combined$conspiracy_mean), NA,
 # alpha 
 psych::alpha(df_combined |> dplyr::select(consp1, consp2, consp3))
 psych::alpha(df_combined |> dplyr::select(conf1, conf2, conf3, conf4))
-psych::alpha(df_combined |> dplyr::select(trustelect1, trustelect2, trustelect3))
+psych::alpha(df_combined |> dplyr::select(trustelect1, trustelect2, 
+                                          trustelect3))
 
 # Factor analysis - Table B1
 factors <- df_combined |> dplyr::select(conf1, conf2, conf3, conf4, 
@@ -289,69 +301,73 @@ sum_stats <- data.frame(
 
 sum_stats
 
-# Treatment Effects
-K <- matrix(c(0, -1, 0, 1), 1)
-## Table 2, Column 1
+# Table 2 - Treatment Effects
+
+## Column 1
 summary(lm_robust(conf1 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
                   se_type = "HC2"))
 lincom(lm_robust(conf1 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
                  se_type = "HC2"), c("tweet8-tweet4",
               "tweetcorrect-tweet4"))
 
-## Table 2, Column 2
+## Column 2
 summary(lm_robust(conf2 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
                   se_type = "HC2"))
 lincom(lm_robust(conf2 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
                  se_type = "HC2"), c("tweet8-tweet4",
                                      "tweetcorrect-tweet4"))
 
-## Table 2, Column 3
+## Column 3
 summary(lm_robust(conf3 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
                   se_type = "HC2"))
 lincom(lm_robust(conf3 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
                  se_type = "HC2"), c("tweet8-tweet4",
                                      "tweetcorrect-tweet4"))
 
-## Table 2, Column 4 
+## Column 4 
 summary(lm_robust(conf4 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
                   se_type = "HC2"))
 lincom(lm_robust(conf4 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
                  se_type = "HC2"), c("tweet8-tweet4",
                                      "tweetcorrect-tweet4"))
 
-## Table 2, Column 5 - Replicate
-trust <- lm_robust(trustelect1 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
-                   se_type = "HC2")
-trust_highlow <- lm_robust(trustelect1 ~ factor(tweet_treat), data = df_combined |>
+## Column 5 - Replicate
+trust <- lm_robust(trustelect1 ~ tweet4 + tweet8 + tweetcorrect, 
+                   data = df_combined, se_type = "HC2")
+trust_highlow <- lm_robust(trustelect1 ~ factor(tweet_treat), 
+                           data = df_combined |> 
                              filter(tweet_treat %in% c(2, 3)), se_type = "HC2")
-trust_lowfact <- lm_robust(trustelect1 ~ factor(tweet_treat), data = df_combined |>
+trust_lowfact <- lm_robust(trustelect1 ~ factor(tweet_treat), 
+                           data = df_combined |>
                              filter(tweet_treat %in% c(2, 4)), se_type = "HC2")
-summary(lm_robust(trustelect1 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
-                  se_type = "HC2"))
+summary(lm_robust(trustelect1 ~ tweet4 + tweet8 + tweetcorrect, 
+                  data = df_combined, se_type = "HC2"))
 
-## Table 2, Column 6
-summary(lm_robust(trustelect2 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
-                  se_type = "HC2"))
-lincom(lm_robust(trustelect2 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
-                 se_type = "HC2"), c("tweet8-tweet4",
+## Column 6
+summary(lm_robust(trustelect2 ~ tweet4 + tweet8 + tweetcorrect, 
+                  data = df_combined, se_type = "HC2"))
+lincom(lm_robust(trustelect2 ~ tweet4 + tweet8 + tweetcorrect, 
+                 data = df_combined, se_type = "HC2"), c("tweet8-tweet4",
                                      "tweetcorrect-tweet4"))
 
-## Table 2, Column 7
-summary(lm_robust(trustelect3 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
-                  se_type = "HC2"))
-lincom(lm_robust(trustelect3 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
-                 se_type = "HC2"), c("tweet8-tweet4",
+## Column 7
+summary(lm_robust(trustelect3 ~ tweet4 + tweet8 + tweetcorrect, 
+                  data = df_combined, se_type = "HC2"))
+lincom(lm_robust(trustelect3 ~ tweet4 + tweet8 + tweetcorrect, 
+                 data = df_combined, se_type = "HC2"), c("tweet8-tweet4",
                                      "tweetcorrect-tweet4"))
 
-## Table 2, Column 8 - Main Analysis
-composite <- lm_robust(zconf_trust ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
-                       se_type = "HC2")
-summary(lm_robust(zconf_trust ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
-                    se_type = "HC2"))
-comp_highlow <- lm_robust(zconf_trust ~ factor(tweet_treat), data = df_combined |>
-                             filter(tweet_treat %in% c(2, 3)), se_type = "HC2")
-comp_lowfact <- lm_robust(zconf_trust ~ factor(tweet_treat), data = df_combined |>
-                             filter(tweet_treat %in% c(2, 4)), se_type = "HC2")
+## Column 8 - Main Analysis
+composite <- lm_robust(zconf_trust ~ tweet4 + tweet8 + tweetcorrect, 
+                       data = df_combined, se_type = "HC2")
+summary(lm_robust(zconf_trust ~ tweet4 + tweet8 + tweetcorrect, 
+                  data = df_combined, se_type = "HC2"))
+comp_highlow <- lm_robust(zconf_trust ~ factor(tweet_treat), 
+                          data = df_combined |> 
+                            filter(tweet_treat %in% c(2, 3)), se_type = "HC2")
+comp_lowfact <- lm_robust(zconf_trust ~ factor(tweet_treat), 
+                          data = df_combined |>
+                            filter(tweet_treat %in% c(2, 4)), se_type = "HC2")
 
 
 # Figure 2
@@ -360,23 +376,129 @@ plotreg(list(lm_robust(zconf_trust ~ tweet4 + tweet8 + tweetcorrect,
                        se_type = "HC2")),
         custom.model.names = "Composite Measure",
         custom.coef.map = c("tweet4" = "Low dose (H1a)",
-                               "tweet8" = "High dose (H2a)",
-                               "tweetcorrect" = "Low dose + fact-check tweets (RQ1a)"),
+                            "tweet8" = "High dose (H2a)",
+                            "tweetcorrect" = "Low dose + fact-check tweets (RQ1a)"),
         theme = theme_classic()) 
 
 
-# Figure 3 - unable to plot but results should be similar
-fig3a <- lm_robust(zconf_trust ~ (tweet4 + tweet8 + tweetcorrect)*dem_leaners + (tweet4 + tweet8 + tweetcorrect)*independents, 
+# Figure 3(a) and 3(b)
+fig3a <- lm_robust(zconf_trust ~ (tweet4 + tweet8 + tweetcorrect) * dem_leaners 
+                   + (tweet4 + tweet8 + tweetcorrect) * independents, 
                    df_combined, se_type = "HC2")
+fig3acoefs <- as.data.frame(lincom(fig3a, c("tweet4 + tweet4:dem_leaners", 
+                                "tweet8 + tweet8:dem_leaners",
+                                "tweetcorrect + tweetcorrect:dem_leaners",
+                                "tweet4 + tweet4:independents", 
+                                "tweet8 + tweet8:independents",
+                                "tweetcorrect + tweetcorrect:independents",
+                                "tweet4", 
+                                "tweet8",
+                                "tweetcorrect"))) |>
+  rownames_to_column(var = "Treatment") |>
+  mutate(party = c("Democrats", "Democrats", "Democrats", "Independents", 
+                   "Independents", "Independents", "Republicans", "Republicans", 
+                   "Republicans"),
+         Treatment = replace_values(Treatment, from = Treatment, 
+                                    to = c("Low dose", "High dose", 
+                                           "Low dose + fact-check tweets", 
+                                           "Low dose", "High dose", 
+                                           "Low dose + fact-check tweets", 
+                                           "Low dose", "High dose", 
+                                           "Low dose + fact-check tweets")),
+         Estimate = as.numeric(Estimate),
+         lower = as.numeric(`2.5 %`),
+         upper = as.numeric(`97.5 %`))
+  
 
-fig3b <- lm_robust(zconf_trust ~ (tweet4 + tweet8 + tweetcorrect)*trump_app_yn, 
+df_combined$trump_disapprove <- if_else(df_combined$trump_app_yn == 0, 1, 0, 
+                                       missing = 1 - abs(df_combined$trump_app_yn))
+fig3b <- lm_robust(zconf_trust ~ (tweet4 + tweet8 + tweetcorrect) * trump_disapprove, 
                    df_combined, se_type = "HC2")
+fig3bcoefs <- as.data.frame(lincom(fig3b, c("tweet4 + tweet4:trump_disapprove",
+                                            "tweet8 + tweet8:trump_disapprove",
+                                            "tweetcorrect + tweetcorrect:trump_disapprove",
+                                            "tweet4",
+                                            "tweet8",
+                                            "tweetcorrect"))) |>
+  rownames_to_column(var = "Treatment") |>
+  mutate(approval = c("Approve", "Approve", "Approve", "Disapprove", 
+                      "Disapprove", "Disapprove"),
+         Treatment = replace_values(Treatment, from = Treatment, 
+                                    to = c("Low dose", "High dose", 
+                                           "Low dose + fact-check tweets", 
+                                           "Low dose", "High dose", 
+                                           "Low dose + fact-check tweets")),
+         Estimate = as.numeric(Estimate),
+         lower = as.numeric(`2.5 %`),
+         upper = as.numeric(`97.5 %`))
 
-summary(fig3a)
-summary(fig3b)
+
+ggplot(fig3acoefs, aes(y = factor(Treatment), color = factor(party), 
+                       group = factor(party))) +
+  geom_point(aes(x = Estimate), position = position_dodge(width = 0.4)) +
+  geom_errorbarh(aes(xmin = lower, xmax = upper), width = 0.0, 
+                 position = position_dodge(width = 0.4)) +
+  geom_vline(aes(xintercept = 0), color = "black", alpha = 0.4) +
+  scale_x_continuous(limits = c(-0.6, 0.2)) +
+  scale_y_discrete(limits = c("Low dose", "High dose", 
+                              "Low dose + fact-check tweets"),
+                   expand = c(0, 0)) +
+  theme_classic()
+
+ggplot(fig3bcoefs, aes(y = factor(Treatment), color = factor(approval), 
+                       group = factor(approval))) +
+  geom_point(aes(x = Estimate), position = position_dodge(width = 0.4)) +
+  geom_errorbarh(aes(xmin = lower, xmax = upper), width = 0.0, 
+                 position = position_dodge(width = 0.4)) +
+  geom_vline(aes(xintercept = 0), color = "black", alpha = 0.4) +
+  scale_x_continuous(limits = c(-0.6, 0.2)) +
+  scale_y_discrete(limits = c("Low dose", "High dose", 
+                              "Low dose + fact-check tweets"),
+                   expand = c(0, 0)) +
+  theme_classic()
+
+# Covariate-Adjusted Estimates
+adj <- df_combined |> # manual scaling instead of lm_lin for regression table
+  mutate(female = scale(female, scale = F), 
+         nonwhite = scale(nonwhite, scale = F),
+         college = scale(college, scale = F), 
+         age = scale(age, scale = F),
+         polknow = scale(polknow, scale = F),
+         married = scale(married, scale = F))
+
+## Trust Elections
+trust_adj <- lm_lin(trustelect1 ~ factor(tweet_treat), ~ female + 
+                      nonwhite + college + age + polknow + married, 
+                    data = df_combined, se_type = "HC2")
+trust_highlow_adj <- lm_lin(trustelect1 ~ tweet8, ~ female + 
+                              nonwhite + college + age + polknow + married, 
+                            data = df_combined |> 
+                              filter(tweet_treat %in% c(2, 3)), se_type = "HC2")
+trust_lowfact_adj <- lm_lin(trustelect1 ~ tweetcorrect, ~ female + nonwhite + 
+                              college + age + 
+                              polknow + married, 
+                            data = adj |> 
+                              filter(tweet_treat %in% c(2, 4)), 
+                            se_type = "HC2")
+
+
+## Composite Outcome
+comp_adj <- lm_lin(zconf_trust ~ factor(tweet_treat), ~ female + nonwhite + 
+                     college + age + polknow + married, data = df_combined, 
+                   se_type = "HC2")
+comp_highlow_adj <- lm_lin(zconf_trust ~ tweet8, ~ female + nonwhite + college 
+                           + age + polknow + married, data = adj |>
+                             filter(tweet_treat %in% c(2, 3)), se_type = "HC2")
+comp_lowfact_adj <- lm_lin(zconf_trust ~ tweetcorrect, ~ female + nonwhite + 
+                             college + age + 
+                             polknow + married, 
+                           data = adj |> 
+                             filter(tweet_treat %in% c(2, 4)), 
+                           se_type = "HC2")
+
 
 # Power Calculations
-set.seed(1000)
+set.seed(92092)
 N <- 4907
 
 ### Table 2, Composite Coefficients as ATE per appendix
@@ -388,8 +510,8 @@ ate_Low_c <- composite$coefficients[2] # low
 ate_High_c <- composite$coefficients[3] # high
 ate_Fact_c <- composite$coefficients[4] # low + fact check
 
-replicate_c <- declare_model(N = N, ate_Low_c = ate_Low_c, ate_High_c = ate_High_c, 
-                           ate_Fact_c = ate_Fact_c, 
+replicate_c <- declare_model(N = N, ate_Low_c = ate_Low_c, 
+                             ate_High_c = ate_High_c, ate_Fact_c = ate_Fact_c, 
               U = rnorm(N, mean = 0, sd = sd_y_c),
               Y_Z_0 = U,
               Y_Z_1 = ate_Low_c + U,
@@ -407,7 +529,7 @@ replicate_c <- declare_model(N = N, ate_Low_c = ate_Low_c, ate_High_c = ate_High
 d <- draw_data(replicate_c)
 power <- declare_diagnosands(power = mean(p.value < 0.05))
 
-set.seed(1000)
+set.seed(92092)
 
 ### low dose
 d1_c <- redesign(replicate_c, ate_Low_c = seq(0, -0.25, by = -0.01))
@@ -418,11 +540,15 @@ diag_low_c <- diagnose_design(d1_c,
 
 low_c <- diag_low_c$diagnosands_df |> filter(inquiry == "ate_low_c")
 
-ggplot(low_c, aes(ate_Low_c, power)) + 
+low_c_rep <- ggplot(low_c, aes(ate_Low_c, power)) + 
   geom_point() +
   geom_line() +
   geom_vline(aes(xintercept = composite$coefficients[2])) +
-  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed")
+  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed") +
+  labs(x = "Average Treatment Effect",
+       y = "Power",
+       title = "ATE for Low Dose") +
+  theme_minimal()
 
 
 ### high dose
@@ -434,11 +560,15 @@ diag_high_c <- diagnose_design(d2_c,
 
 high_c <- diag_high_c$diagnosands_df |> filter(inquiry == "ate_high_c")
 
-ggplot(high_c, aes(ate_High_c, power)) + 
+high_c_rep <- ggplot(high_c, aes(ate_High_c, power)) + 
   geom_point() +
   geom_line() +
   geom_vline(aes(xintercept = composite$coefficients[3])) +
-  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed")
+  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed") +
+  labs(x = "Average Treatment Effect",
+       y = "Power",
+       title = "ATE for High Dose") +
+  theme_minimal()
 
 
 ### fact-check dose
@@ -450,23 +580,27 @@ diag_fact_c <- diagnose_design(d3_c,
 
 fact_c <- diag_fact_c$diagnosands_df |> filter(inquiry == "ate_fact_c")
 
-ggplot(fact_c, aes(ate_Fact_c, power)) + 
+fact_c_rep <- ggplot(fact_c, aes(ate_Fact_c, power)) + 
   geom_point() +
   geom_line() +
   geom_vline(aes(xintercept = composite$coefficients[4])) +
-  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed")
+  geom_hline(aes(yintercept = 0.8), color = "red", linetype = "dashed") +
+  labs(x = "Average Treatment Effect",
+       y = "Power",
+       title = "ATE for Low + Fact-Check") +
+  theme_minimal()
 
 
-# Table 2, Column 5
-set.seed(1000)
+## Table 2, Column 5
+set.seed(92092)
 sd_y_t <- sqrt(trust$res_var)
 
 ate_Low_t <- trust$coefficients[2] # low
 ate_High_t <- trust$coefficients[3] # high
 ate_Fact_t <- trust$coefficients[4] # low + fact check
 
-replicate_t <- declare_model(N = N, ate_Low_t = ate_Low_t, ate_High_t = ate_High_t, 
-                             ate_Fact_t = ate_Fact_t, 
+replicate_t <- declare_model(N = N, ate_Low_t = ate_Low_t, 
+                             ate_High_t = ate_High_t, ate_Fact_t = ate_Fact_t, 
                              U = rnorm(N, mean = 0, sd = sd_y_t),
                              Y_Z_0 = U,
                              Y_Z_1 = ate_Low_t + U,
@@ -483,7 +617,8 @@ replicate_t <- declare_model(N = N, ate_Low_t = ate_Low_t, ate_High_t = ate_High
 
 d_t <- draw_data(replicate_t)
 
-set.seed(1000)
+set.seed(92092)
+
 ### low dose
 d1_t <- redesign(replicate_t, ate_Low_t = seq(0, -0.25, by = -0.01))
 
@@ -577,11 +712,11 @@ pwr_fact_c <- ss_c$diagnosands_df |>
 
 pwr_c <- (pwr_low_c + pwr_high_c) / pwr_fact_c
 
-ggsave(here("docs", "samplesizepower_composite.png"), plot = pwr_c, units = "in",
-       width = 7, height = 4)
+ggsave(here("docs", "samplesizepower_composite.png"), plot = pwr_c, 
+       units = "in", width = 7, height = 4)
 
 
-## Trust
+## trust
 pwr_low_t <- ss_t$diagnosands_df |> 
   filter(inquiry == "ate_low_t") |>
   ggplot(aes(N, power)) +
@@ -620,7 +755,7 @@ pwr_fact_t <- ss_t$diagnosands_df |>
 
 # Effect of Fact Check Power Analysis
 ### Composite
-set.seed(1000)
+set.seed(92092)
 sd_y_clf <- sqrt(comp_lowfact$res_var)
 
 ate_Factlow_c <- comp_lowfact$coefficients[2] 
@@ -638,7 +773,7 @@ replicate_clf <- declare_model(N = N, ate_Factlow_c = ate_Factlow_c,
 
 d_clf <- draw_data(replicate_clf)
 
-set.seed(1000)
+set.seed(92092)
 
 d1_clf <- redesign(replicate_clf, ate_Factlow_c = seq(0, 0.25, by = 0.01))
 
@@ -671,9 +806,8 @@ pwr_factlow_c <- ss_clf$diagnosands_df |>
   theme_minimal()
 
 
-
 ### Trust
-set.seed(1000)
+set.seed(92092)
 sd_y_tlf <- sqrt(trust_lowfact$res_var)
 
 ate_Factlow_t <- trust_lowfact$coefficients[2] 
@@ -691,7 +825,7 @@ replicate_tlf <- declare_model(N = N, ate_Factlow_t = ate_Factlow_t,
 
 d_tlf <- draw_data(replicate_tlf)
 
-set.seed(1000)
+set.seed(92092)
 
 d1_tlf <- redesign(replicate_tlf, ate_Factlow_t = seq(0, 0.25, by = 0.01))
 
@@ -724,11 +858,10 @@ pwr_factlow_t <- ss_tlf$diagnosands_df |>
   theme_minimal()
 
 
-
 # Graphs
 
-pwr_graphs <- (pwr_low_t + pwr_low_c) / (pwr_high_t + pwr_high_c) / (pwr_fact_t + pwr_fact_c)
-
+pwr_graphs <- (low_c_rep + pwr_low_c) / (high_c_rep + pwr_high_c) / (fact_c_rep + pwr_fact_c)
+  
 ggsave(here("docs", "pwr.png"), plot = pwr_graphs, units = "in", 
        width = 8, height = 8)
 
