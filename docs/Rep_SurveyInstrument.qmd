@@ -68,7 +68,7 @@ school; High school graduate; Some college, but no degree (yet); 2-year college 
 college degree; Postgraduate degree (MA, MBA, MD, JD, PhD, etc.))
 - Who did you vote for in the election for President? (Options: Kamala Harris, Donald Trump, Robert F. Kennedy Jr., Jill Stein, Other, Did not vote)
 
-# Question 15 - Pre-Treatment Feeling Thermometer
+## Question 15 - Pre-Treatment Feeling Thermometer
 We would like to get your feelings toward some groups, leaders, and institutions who are in the
 news these days using something we call the feeling thermometer. Ratings between 50 degrees and
 100 degrees mean that you feel favorable and warm toward the group, leader, or institution. Ratings between 0 degrees and 50 degrees mean that you don’t feel favorable toward them and that you don’t care too much for them. You would rate them at the 50 degree mark if you don’t feel particularly warm or cold toward them. If we come to a group, leader, or institution whose name you don’t recognize, you don’t need to rate them. (Respondents click on thermometer to give ratings for: White people, Hispanic or Latino people, Christians, Muslims)
