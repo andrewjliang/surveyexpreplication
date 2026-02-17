@@ -1,0 +1,150 @@
+---
+title: "Survey Instrument for Replication of @Berlinskietal2023"
+author: Andrew J. Liang
+date: today
+format: 
+  pdf:
+    pdf-engine: pdflatex
+    fontfamily: times
+    fontsize: 11pt
+    fig-width: 3.5
+    keep-tex: true
+bibliography: bibliography.bib
+include-in-header:
+    - text: | 
+        \addtokomafont{disposition}{\rmfamily}
+        \usepackage{graphicx}
+warning: false
+fig-align: center
+fig-width: 3.5
+width: 50%
+suppress-bibliography: true
+---
+
+For this survey instrument, we will use many of the questions asked in the original study, reported as Online Appendix A of @Berlinskietal2023.
+
+# Pre-Treatment
+
+## Question 1 - Party ID Questions
+- Generally speaking, do you usually think of yourself as a Republican, a Democrat, an Independent, or something else? (Options: Republican, Democrat, Independent, Something else)
+    - [if Democrat selected] Would you call yourself a strong Democrat or not a very strong Democrat? (Options: Strong Democrat or Not very strong Democrat)
+    - [if Republican selected] Would you call yourself a strong Republican or not a very strong Republican? (Options: Strong Republican or Not very strong Republican)
+    
+## Question 2 - Political Interest
+Some people seem to follow what’s going on in government and public affairs most of the time,
+whether there’s an election going on or not. Others aren’t that interested. Would you say you follow what’s going on in government and public affairs? (Options: Most of the time, Some of the time, Only now and then, Hardly at all, Don’t know)
+
+## Questions 3-6 - Political Knowledge
+- How many times can an individual be elected President of the United States under current laws?
+(Options: Once, Twice, Four times, Unlimited number of terms, Don’t know)
+- How many U.S. Senators are there from each state? (Options: One, Two, Depends on which state,
+Don’t know)
+- Who is currently the Prime Minister of the United Kingdom? (options: Richard Branson, Liz Truss, Keir Starmer, Boris Johnson, Rishi Sunak, Margaret Thatcher, Don’t know)
+- For how many years is a member of the United States House of Representatives elected - that is, how many years are there in one full term of office for a U.S. House member? (Options: Two years,
+Four years, Six years, Eight years, For life, Don’t know)
+
+## Question 7 - Conspiracy
+- Much of our lives are being controlled by plots hatched in secret places. (Options: Strongly agree (5), Somewhat agree (4), Neither disagree nor disagree (3), Somewhat disagree (2), Strongly disagree (1)
+- Even though we live in a democracy, a fewpeople will always run things anyway. (Options: Strongly agree (5), Somewhat agree (4), Neither disagree nor disagree (3), Somewhat disagree (2), Strongly disagree (1)
+- The people who really ’run’ the country are not known to the voter. (Options: Strongly agree (5), Somewhat agree (4), Neither disagree nor disagree (3), Somewhat disagree (2),Strongly disagree (1)
+- Big events like wars, recessions, and the outcomes of elections are controlled by small groups of people who are working in secret against the rest of us. (Options: Strongly agree (5), Somewhat agree (4), Neither disagree nor disagree (3), Somewhat disagree (2), Strongly disagree (1)
+
+## Question 8 - Trust in mass media in reporting news
+In general, how much trust and confidence do you have in the mass media – such as newspapers, TV and radio – when it comes to reporting the news fully, accurately and fairly? (Options: A great
+deal, A fair amount, Not very much, None at all)
+
+## Question 9 - Trust in Facebook in reporting news
+In general, how much trust and confidence do you have in the information you see on Facebook
+when it comes to reporting the news fully, accurately, and fairly? (Options: A great deal, A fair amount, Not very much, None at all)
+
+## Questions 10-14
+- In what year were you born? (open text response)
+- What is your gender? (Options: Male, Female, Other)
+- What racial or ethnic group best describes you? (Options: White, Black or African-American,
+Hispanic or Latino, Asian or Asian-American, Native American, Middle Eastern, Mixed Race,
+Other)
+- What is the highest level of education you have completed? (Options: Did not graduate from high
+school; High school graduate; Some college, but no degree (yet); 2-year college degree; 4-year
+college degree; Postgraduate degree (MA, MBA, MD, JD, PhD, etc.))
+- Who did you vote for in the election for President? (Options: Kamala Harris, Donald Trump, Robert F. Kennedy Jr., Jill Stein, Other, Did not vote)
+
+# Question 15 - Pre-Treatment Feeling Thermometer
+We would like to get your feelings toward some groups, leaders, and institutions who are in the
+news these days using something we call the feeling thermometer. Ratings between 50 degrees and
+100 degrees mean that you feel favorable and warm toward the group, leader, or institution. Ratings between 0 degrees and 50 degrees mean that you don’t feel favorable toward them and that you don’t care too much for them. You would rate them at the 50 degree mark if you don’t feel particularly warm or cold toward them. If we come to a group, leader, or institution whose name you don’t recognize, you don’t need to rate them. (Respondents click on thermometer to give ratings for: White people, Hispanic or Latino people, Christians, Muslims)
+
+## Question 16 - Voted in election
+In talking to people about elections, we often find that a lot of people were not able to vote because they weren’t registered, they were sick, or they just didn’t have time. Which of the following statements best describes you? (Options: I am sure I voted, I was not registered to vote at the time of election, I did not have time to vote, I did not or was unable to vote for other reasons)
+
+# Treatment/Outcome Questions
+
+## Question 1
+All treatments will be prefaced with the following statement: “Please read the following tweets carefully.
+We will ask you a question about them after you read them.”
+
+**Treatment Types**
+
+  - Control - series of non-political, control tweets
+  - Condition 1 - random subset of 4 of 8 election fraud/meddling tweets below in random order
+  - Condition 2 - all 8 of the election meddling tweets below in random order
+  - Condition 3 - random subset of 4 of 8 election fraud/meddling tweets below in random order and
+all 4 of the no fraud/no meddling tweets (in random order)
+
+[Posts from X used for each treatment condition in the study will be updated  closer to the 2026 midterm election.]
+
+## Question 2
+- Attention check (varies by condition)
+    - What news event was mentioned in the tweets you just read? [shown to respondents in treatment
+conditions] (Options: The elections in November 2020, The elections in November 2022, The elections
+in November 2024, The elections in November 2026)
+    - Which of these individuals was featured in the tweets you just read? [shown to respondents in
+control condition] (Options of individuals in the control stage to be selected closer to election)
+
+
+## Question 3 - Confidence measures:
+- How confident are you that everyone who was legally entitled to vote and sought to do so was able
+to successfully cast a ballot in the election this November? (Options: Very confident, Somewhat
+confident, Not too confident, Not at all confident)
+
+- [Only if response to pre-treatment Q16 was "I am sure I voted"] How confident are you that your vote was accurately counted in the election
+this November? (Options: Very confident, Somewhat confident, Not too confident, Not at all
+confident)
+
+- How confident are you that election officials managed the counting of ballots fairly in the election
+this November? (Options: Very confident, Somewhat confident, Not too confident, Not at all confident)
+
+- Do you agree or disagree with the following statement: At the end of the day, in spite of all the problems casting and counting the votes, the system worked.
+(Options: Strongly agree, Somewhat agree, Somewhat disagree, Strongly disagree)
+
+- To what extent do you trust elections in this country? Please respond on the scale below where 1
+means “not at all” and 7 means “a lot.” (Options: 1 Not at all, 2, 3, 4, 5, 6, 7 A lot)
+
+- How secure are ballots from tampering in this country’s elections? (Options: Extremely secure,
+Very secure, Moderately secure, Not too secure, Not at all secure)
+
+- How often are voting machines accurate in counting the votes? (Options: Extremely often, Very
+often, Moderately often, Not too often, Not at all often)
+
+# Question 4 - Thermometer ratings
+- We would like to get your feelings toward some groups, leaders, and institutions who are in the
+news these days using something we call the feeling thermometer. Ratings between 50 degrees and
+100 degrees mean that you feel favorable and warm toward the group, leader, or institution. Ratings
+between 0 degrees and 50 degrees mean that you don’t feel favorable toward them and that you don’t
+care too much for them. You would rate them at the 50 degree mark if you don’t feel particularly
+warm or cold toward them. If we come to a group, leader, or institution whose name you don’t
+recognize, you don’t need to rate them. (Respondents click on thermometer to give ratings for:
+Democratic Party, Republican Party, President Trump, The news media)
+
+- How important is it for you to live in a country that is governed democratically? Please respond
+below on this scale where 1 means it is “not at all important” and 10 means “absolutely important.”
+(Options: 1 Min, 2, 3, 4, 5, 6, 7, 8, 9, 10 Max)
+
+- Various types of political systems are described below. Please think about each choice in terms of
+governing this country and indicate if you think it would be a very good, fairly good, fairly bad, or
+very bad way of governing the United States.
+    - Having a strong leader who does not have to bother with Congress and elections: (Options: Very
+good, Fairly good, Fairly bad, Very bad)
+    - Having experts, not government, make decisions according to what they think is best for the country:
+(Options: Very good, Fairly good, Fairly bad, Very bad)
+    - Having the army rule: (Options: Very good, Fairly good, Fairly bad, Very bad)
+    - Having a democratic political system: (Options: Very good, Fairly good, Fairly bad, Very bad)
