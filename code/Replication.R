@@ -699,7 +699,7 @@ pwr_low_c <- ss_c$diagnosands_df |>
   geom_vline(aes(xintercept = 4283)) +
   labs(x = "Sample Size",
        y = "Statistical Power", 
-       title = "ATE for Low Dose, Composite") +
+       title = "ATE for Low Dose") +
   theme_minimal()
 
 pwr_high_c <- ss_c$diagnosands_df |> 
@@ -710,7 +710,7 @@ pwr_high_c <- ss_c$diagnosands_df |>
   geom_vline(aes(xintercept = 4283)) +
   labs(x = "Sample Size",
        y = "Statistical Power",
-       title = "ATE for High Dose, Composite") +
+       title = "ATE for High Dose") +
   theme_minimal()
 
 
@@ -722,7 +722,7 @@ pwr_fact_c <- ss_c$diagnosands_df |>
   geom_vline(aes(xintercept = 4283)) +
   labs(x = "Sample Size",
        y = "Statistical Power",
-       title = "ATE for Low Dose + Fact-Check, Composite") +
+       title = "ATE for Low Dose + Fact-Check") +
   theme_minimal()
 
 pwr_c <- (pwr_low_c + pwr_high_c) / pwr_fact_c
