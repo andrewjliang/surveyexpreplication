@@ -1,57 +1,79 @@
 ---
-title: Replication of @Berlinskietal2023
+title: Replication Proposal - @Berlinskietal2023
 author: Andrew J. Liang
 date: today
 format: 
   pdf:
     pdf-engine: pdflatex
-    fontfamily: libertine
+    fontfamily: times
+    fontsize: 11pt
+    fig-width: 3.5
+    keep-tex: true
 bibliography: bibliography.bib
 include-in-header:
     - text: | 
         \addtokomafont{disposition}{\rmfamily}
+        \usepackage{graphicx}
+        \usepackage{rotating}
+warning: false
+fig-align: center
+fig-width: 3.5
+width: 50%
+geometry:
+  - top = 1in
+  - bottom = 1in
 ---
+
+
 ```{r}
 #| include: false
 #| message: false
+#| warning: false
 
 # Replication performed on 2022 MacBook Air, M2, 16 G.B. RAM, 512 G.B. SSD
 # macOS Sequoia 15.6
 # Loading packages
-library(tidyverse); library(haven)
-library(fixest); library(here)
+suppressPackageStartupMessages({
+library(tidyverse); library(haven); library(DeclareDesign); library(stargazer)
+library(fixest); library(here); library(modelsummary); library(marginaleffects)
+library(patchwork); library(biostat3); library(cobalt); library(psych);
+library(lavaan); library(texreg)
+  })
 
 here::i_am("docs/Replication.qmd")
 
 main <- read_dta(here("data/Berlinskietal2023", "survey-data.dta"))
 pulse <- read_dta(here("data/Berlinskietal2023", "pulse-data.dta"))
 
-df_combined <- main |> 
+df_combined <- main |>
   left_join(pulse, by = "caseid") |>
   mutate(nopulse_pre = if_else(is.na(totalnewsbinary_presurvey), 1, 0),
-         female = case_when(gender == 1 ~ 0,
+         female = case_when(gender == 1 ~ 0, # female
                             gender == 2 ~ 1,
                             .default = NA), 
-         nonwhite = if_else(race == 1, 0, 1, missing = NA),
-         college = if_else(educ %in% c(5, 6), 1, 0, missing = NA),
-         age = 2018 - birthyr, 
+         nonwhite = if_else(race == 1, 0, 1, missing = NA), # race
+         college = if_else(educ %in% c(5, 6), 1, 0, missing = NA), # education
+         married = case_when(marstat %in% c(1, 6) ~ 1, 
+                             marstat %in% c(2, 3, 4, 5) ~ 0,
+                             .default = NA),
+         age = 2018 - birthyr, # age
          agecat = case_when(age > 17 & age <= 24 ~ 1, # 18-24
                             age > 24 & age <= 44 ~ 2, # 25-44
                             age > 44 & age <= 64 ~ 3, # 45-64
                             age > 64 ~ 4, # 65+
                             .default = NA),
-         agecat1 = if_else(agecat == 1, 1, 0),
+         agecat1 = if_else(agecat == 1, 1, 0), # age category
          agecat2 = if_else(agecat == 2, 1, 0),
          agecat3 = if_else(agecat == 3, 1, 0), 
          agecat4 = if_else(agecat == 4, 1, 0),
-         ideology = ideo,
-         dem = if_else(pid3 == 1, 1, 0, missing = NA),
+         ideology = ideo, # ideology
+         dem = if_else(pid3 == 1, 1, 0, missing = NA), # party
          repub = if_else(pid3 == 2, 1, 0, missing = NA),
          ind3pt = if_else(pid3 %in% c(3, 4, 5), 1, 0, missing = NA),
          dem_leaners = if_else(pid7 %in% c(1, 2, 3), 1, 0, missing = NA),
          repub_leaners = if_else(pid7 %in% c(5, 6, 7), 1, 0, missing = NA),
          independents = if_else(pid7 %in% c(4, 8), 1, 0, missing = NA),
-         pid3_lean = case_when(dem_leaners == 1 ~ 1,
+         pid3_lean = case_when(dem_leaners == 1 ~ 1, # lean
                                independents == 1 ~ 2,
                                repub_leaners == 1 ~ 3),
          old_trump_approve = trump_approve,
@@ -60,28 +82,408 @@ df_combined <- main |>
                                    old_trump_approve == 3 ~ 2,
                                    old_trump_approve == 4 ~ 1,
                                    .default = NA),
-         trump_approve_yn = if_else(old_trump_approve %in% c(1, 2), 1, 0, 
-                                    missing = NA)
-         )
+         trump_app_yn = case_when(old_trump_approve %in% c(1, 2) ~ 1,
+                                  old_trump_approve %in% c(3, 4) ~ 0,
+                                    .default = NA),
+         polint = case_when(pol_interest == 1 ~ 5,
+                            pol_interest == 2 ~ 4,
+                            pol_interest == 3 ~ 3,
+                            pol_interest == 4 ~ 2,
+                            pol_interest == 5 ~ 1,
+                            .default = NA),
+         highpolint = if_else(polint >= 4, 1, 0, missing = NA),
+         FT_trump = pol_therm_trump,
+         FT_rep = pol_therm_rep,
+         FT_dem = pol_therm_dem,
+         FT_media = pol_therm_media,
+         dem_less_repw1 = FT_dem - FT_rep,
+         rep_less_demw1 = FT_rep - FT_dem,
+         dem_less_rep_w1 = if_else(repub == 1, 0, dem_less_repw1),
+         rep_less_dem_w1 = if_else(dem == 1, 0, rep_less_demw1),
+         affect_mergedw1 = dem_less_rep_w1 + rep_less_dem_w1,
+         dem_less_rep_w1x = if_else(repub_leaners == 1, 0, dem_less_repw1),
+         rep_less_dem_w1x = if_else(dem_leaners == 1, 0, rep_less_demw1),
+         affect_merged_leanersw1 = dem_less_rep_w1x + rep_less_dem_w1x,
+         polknow = 0,
+         polknow = if_else(senator_term == 3, polknow + 1, polknow, missing = polknow),
+         polknow = if_else(pres_term_limit == 2, polknow + 1, polknow, missing = polknow),
+         polknow = if_else(senator_num == 2, polknow + 1, polknow, missing = polknow),
+         polknow = if_else(uk_pm == 4, polknow + 1, polknow, missing = polknow),
+         polknow = if_else(rep_term == 1, polknow + 1, polknow, missing = polknow),
+         massmedia_trust = case_when(media_trust == 1 ~ 4,
+                                     media_trust == 2 ~ 3,
+                                     media_trust == 3 ~ 2,
+                                     media_trust == 4 ~ 1),
+         fbtrust = case_when(fb_trust == 1 ~ 4,
+                              fb_trust == 2 ~ 3,
+                              fb_trust == 3 ~ 2,
+                              fb_trust == 4 ~ 1),
+         fb_use = case_when(fb_freq == 1 ~ 9,
+                            fb_freq == 2 ~ 8,
+                            fb_freq == 3 ~ 7,
+                            fb_freq == 4 ~ 6,
+                            fb_freq == 5 ~ 5,
+                            fb_freq == 6 ~ 4,
+                            fb_freq == 7 ~ 3,
+                            fb_freq == 8 ~ 2,
+                            fb_freq == 9 ~ 1), 
+         fb_pol_use = case_when(fb_political_freq == 1 ~ 9,
+                                fb_political_freq == 2 ~ 8,
+                                fb_political_freq == 3 ~ 7,
+                                fb_political_freq == 4 ~ 6,
+                                fb_political_freq == 5 ~ 5,
+                                fb_political_freq == 6 ~ 4,
+                                fb_political_freq == 7 ~ 3,
+                                fb_political_freq == 8 ~ 2,
+                                fb_political_freq == 9 ~ 1),
+         fb_pol_share = case_when(fb_share_freq == 1 ~ 9,
+                                  fb_share_freq == 2 ~ 8,
+                                  fb_share_freq == 3 ~ 7,
+                                  fb_share_freq == 4 ~ 6,
+                                  fb_share_freq == 5 ~ 5,
+                                  fb_share_freq == 6 ~ 4,
+                                  fb_share_freq == 7 ~ 3,
+                                  fb_share_freq == 8 ~ 2,
+                                  fb_share_freq == 9 ~ 1),
+         consp1 = case_when(conspiracy_1 == 1 ~ 5,
+                            conspiracy_1 == 2 ~ 4,
+                            conspiracy_1 == 3 ~ 3,
+                            conspiracy_1 == 4 ~ 2,
+                            conspiracy_1 == 5 ~ 1,
+                            .default = NA),
+         consp2 = case_when(conspiracy_2 == 1 ~ 5,
+                            conspiracy_2 == 2 ~ 4,
+                            conspiracy_2 == 3 ~ 3,
+                            conspiracy_2 == 4 ~ 2,
+                            conspiracy_2 == 5 ~ 1,
+                            .default = NA),
+         consp3 = case_when(conspiracy_3 == 1 ~ 5,
+                            conspiracy_3 == 2 ~ 4,
+                            conspiracy_3 == 3 ~ 3,
+                            conspiracy_3 == 4 ~ 2,
+                            conspiracy_3 == 5 ~ 1,
+                            .default = NA),
+         tweet_treat = case_when(tweet_treat_w2 == 4 ~ 1, # control
+                                 tweet_treat_w2 == 3 ~ 4, # low + fact-check 
+                                 tweet_treat_w2 == 2 ~ 3, # high dose
+                                 tweet_treat_w2 == 1 ~ 2, # low dose
+                                 .default = NA), 
+         tweet4 = if_else(tweet_treat_w2 == 1, 1, 0, missing = NA),
+         tweet8 = if_else(tweet_treat_w2 == 2, 1, 0, missing = NA),
+         tweetcorrect = if_else(tweet_treat_w2 == 3, 1, 0, missing = NA),
+         tweetcontrol = if_else(tweet_treat_w2 == 4, 1, 0, missing = NA),
+         tweet_news_2018 = case_when(tweet_news_w2 == 3 ~ 1, 
+                                     tweet_news_w2 %in% c(1, 2, 4) ~ 0,
+                                     .default = NA),
+         tweet_news_control = case_when(tweet_accuracy_control_2_w2 == 1 ~ 1,
+                                        tweet_accuracy_control_2_w2 %in% c(2, 3, 4) ~ 0,
+                                        .default = NA),
+         massmedia_trustw2 = case_when(media_trust_w2 == 1 ~ 4,
+                                       media_trust_w2 == 2 ~ 3,
+                                       media_trust_w2 == 3 ~ 2,
+                                       media_trust_w2 == 4 ~ 1),
+         fbtrustw2 = case_when(fb_trust_w2 == 1 ~ 4,
+                               fb_trust_w2 == 2 ~ 3,
+                               fb_trust_w2 == 3 ~ 2,
+                               fb_trust_w2 == 4 ~ 1),
+         FT_muslim = group_affect_muslim_w2,
+         FT_christian = group_affect_christian_w2,
+         FT_white = group_affect_white_w2,
+         FT_black = group_affect_black_w2,
+         FT_labor = group_affect_labor_w2,
+         FT_rich = group_affect_rich_w2,
+         FT_latino = group_affect_latino_w2,
+         FT_white_latino = FT_white-FT_latino,
+         FT_christian_muslim = FT_christian-FT_muslim,
+         conf1 = case_when(vote_entitled_w2 == 1 ~ 4,
+                           vote_entitled_w2 == 2 ~ 3,
+                           vote_entitled_w2 == 3 ~ 2,
+                           vote_entitled_w2 == 4 ~ 1,
+                           .default = NA),
+         conf2 = case_when(plan_vote_certain_w2 == 1 ~ 4,
+                           plan_vote_certain_w2 == 2 ~ 3,
+                           plan_vote_certain_w2 == 3 ~ 2,
+                           plan_vote_certain_w2 == 4 ~ 1,
+                           .default = NA),
+         conf3 = case_when(officials_count_w2 == 1 ~ 4,
+                           officials_count_w2 == 2 ~ 3,
+                           officials_count_w2 == 3 ~ 2,
+                           officials_count_w2 == 4 ~ 1,
+                           .default = NA),
+         conf4 = case_when(system_works_w2 == 1 ~ 4,
+                           system_works_w2 == 2 ~ 3,
+                           system_works_w2 == 3 ~ 2,
+                           system_works_w2 == 4 ~ 1,
+                           .default = NA),
+         conf4 = case_when(system_works_w2 == 1 ~ 4,
+                           system_works_w2 == 2 ~ 3,
+                           system_works_w2 == 3 ~ 2,
+                           system_works_w2 == 4 ~ 1,
+                           .default = NA),
+         trustelect1 = case_when(trust_elections_w2 == 1 ~ 1,
+                               trust_elections_w2 == 2 ~ 2,
+                               trust_elections_w2 == 3 ~ 3,
+                               trust_elections_w2 == 4 ~ 4,
+                               trust_elections_w2 == 5 ~ 5,
+                               trust_elections_w2 == 6 ~ 6,
+                               trust_elections_w2 == 7 ~ 7,
+                               .default = NA),
+         trustelect2 = case_when(secure_ballot_w2 == 1 ~ 5,
+                                 secure_ballot_w2 == 2 ~ 4,
+                                 secure_ballot_w2 == 3 ~ 3,
+                                 secure_ballot_w2 == 4 ~ 2,
+                                 secure_ballot_w2 == 5 ~ 1,
+                                 .default = NA),
+         trustelect3 = case_when(machine_accurate_w2 == 1 ~ 5,
+                                 machine_accurate_w2 == 2 ~ 4,
+                                 machine_accurate_w2 == 3 ~ 3,
+                                 machine_accurate_w2 == 4 ~ 2,
+                                 machine_accurate_w2 == 5 ~ 1,
+                                 .default = NA),
+         democ_imp = importance_democracy_w2,
+         polsys1 =  polsystem_w2_1,
+         polsys2 =  polsystem_w2_2,
+         polsys3 =  polsystem_w2_3,
+         polsys4 = case_when(polsystem_w2_4 == 1 ~ 4,
+                             polsystem_w2_4 == 2 ~ 3,
+                             polsystem_w2_4 == 3 ~ 2,
+                             polsystem_w2_4 == 4 ~ 1),
+         missing = as.integer(if_all(all_of(c("conf1","conf2","conf3","conf4",
+           "trustelect1","trustelect2","trustelect3")), is.na))
+         
+  )
+
+## manual creation of some variables
+df_combined$conspiracy_mean <- rowMeans(dplyr::select(df_combined, consp1, 
+                                                      consp2, consp3), 
+                                        na.rm = TRUE)
+df_combined$conspiracy_mean <- if_else(is.nan(df_combined$conspiracy_mean), NA, 
+                                       df_combined$conspiracy_mean)   
+
+
+# Factor analysis - More Information in Table B1
+factors <- df_combined %>% dplyr::select(conf1, conf2, conf3, conf4, 
+                                         trustelect1, trustelect2, trustelect3,
+                                         democ_imp, polsys1, polsys2, polsys3, 
+                                         polsys4)
+
+principal(factors, nfactors = 3, rotate = "varimax")
+
+# Structural Equation Model - Table B2
+sem_fit <- sem("Conf_trust =~ conf1 + conf2 + conf3 + conf4 +
+                trustelect1 + trustelect2 + trustelect3", 
+    data = df_combined, missing = "fiml")
+
+fs <- lavPredict(sem_fit, type = "lv")
+
+
+# Creating Composite Measure
+df_combined$zconf_trust <- scale(fs)
+
 ```
 
-This is a replication proposal and reanalysis of @Berlinskietal2023. Trust in elections has recently been
+We propose to replicate a prominent study showing that exposure to misinformation from the political elite decreases voters' trust in elections, and that fact-checking might be ineffective in combating the impact of misinformation regarding election fraud for voters [@Berlinskietal2023]. In that study, 4,283 respondents from YouGov were randomly assigned to either view four food-related tweets (the control condition), a random subset of four out of eight tweets from prominent Republican officials claiming election fraud/meddling in the 2018 midterm elections (the low treatment condition), all eight of the election fraud tweets (high treatment condition), or four random election fraud tweets plus four fact-checking tweets from prominent news sources such as the *New York Times* in a between-subjects design. The authors found that exposure to social media posts from prominent government officials suggesting that election fraud may have occurred in the 2018 midterm elections decreased voters' confidence in election integrity, and that even if these posts were supplemented by a fact-checking source, that decrease in trust persisted. The authors also found that the fact-checking tweets were not substantially effective at reducing the effects of misinformation on voter confidence, compared to individuals who saw the four misinformation tweets without fact-checking. 
 
-# Replication
+Replication of this study is important for three reasons: 
+
+1. Although concerns over whether voters are confident that elections are being administered fairly have long existed in the literature [@Craigetal2006; @Minnite2010], trust in elections has dropped precipitously within the last decade [@Jaffeetal2024; @Stewart2022]. Claims of election fraud have increased significantly in the years after the 2018 midterm election, particularly after the presidential election in 2020 when Donald Trump claimed that the election was stolen from him; these claims may carry long-term consequences for elections officials and the public [@BarrettCorasanitiFausset2026; @WinterGoudsward2026]. When political elites are the ones voicing these claims, voters may adjust their perceptions of elections accordingly [@Claytonetal2021; @Agadjanian2021]. As a result, media organizations and elections officials have begun fact-checking campaigns against misinformation in the hopes of regaining confidence in elections among voters [@Coppocketal2023]. 
+
+   The question that remains, however, is to what extent does fact-checking have an impact on combating misinformation. While @Berlinskietal2023 found that fact-checking social media posts from media organizations did not appear to substantially impact the effects of misinformation on voter confidence, recent research has indicated that "prebunking" messages may be able to positively shape voters' trust in elections [@Careyetal2025], and that elections officials may also be more successful in instilling confidence in elections [@Gaudetteetal2025; @Lockhartetal2024]. What causes this difference in outcomes? One plausible reason is that media organizations are now producing shorter, "bite-sized" news articles with very little substantive information [@Trexler2026]. This, coupled with Americans' growing distrust of the media [@Ladd2012], suggests that voters use the source of the fact-checker as a signal of the message's persuasiveness. Replicating @Berlinskietal2023 would help us confirm whether the source of the fact-checking matters in increasing voter confidence; since the original study focused exclusively on social media posts, similar results could indicate the possibility that a fact-checker's authority matters in their persuasiveness, and that social media posts from media organizations may be ineffective as fact-checking supplements to misinformation.
+
+2. The authors conducted their own power analysis and found that while the estimates for the low and high treatment doses were sufficiently powered, the estimate for the fact-checking dose was not. This is especially concerning since a key focus of the paper was whether fact-checking could counteract the effects of misinformation on voters' confidence in elections. After replicating the authors' power analysis, we show that the necessary sample size for all three estimates to be sufficiently powered is approximately 8,000 respondents. Because of the substantial loss in sample size, we believe that Rep Data's ability to provide both high-quantity *and* high-quality respondents can help us overcome issues of statistical power for our main estimands.
+
+3. 2026 is a midterm election year, as was the 2018 midterm election studied in the original paper. The only difference is that we now study how voters respond to misinformation during elections after notable elections-related events like the January 6th Capitol attack and the Dominion-Fox News lawsuit have concluded, otherwise, we would have a similar research setting to that of the original study. This gives us a chance to see whether these events, which negatively impacted some voters' perceptions of election results [@Herron2023], have shaped confidence in elections across party lines over time.
+
+# Replication {#sec-rep}
+
+We choose to reanalyze three estimands of the paper - the treatment effect of various exposure levels of election fraud on a composite measure of respondents' confidence towards elections, the difference in the treatment effects between the high treatment dose and the low treatment dose on the composite outcome, and the difference in the treatment effects between the low treatment dose and the fact-checking treatment dose. These estimands correspond to hypotheses H1a, H2a, RQ1a, H3a, and H4a in the original study, and to Table 2, Column 8 in the paper. We choose these estimands specifically because they can help us address some of the questions we posed in the introduction; confirming whether fact-checking social media posts are in fact ineffective at reducing the impact of misinformation would help us transition to the objective of our novel survey experiment - verifying whether the source of the fact-checking matters.
+
+We would use an identical design to that of the original study, compressed to a single wave of survey questions (along with our novel survey experiment) - prior to introducing the treatment conditions, we would ask respondents about several typical characteristics, such as their highest level of education, age, and ideological leaning. A minor but easily fixable complication involves the treatments offered to respondents. We plan to update the social media posts used for each treatment condition so that they accurately reflect the sentiment of prominent government officials during the 2026 election. The original study used posts from Twitter for the treatment, and then-President Donald Trump was one of the main officials whose tweets were used as the treatment dose in the original study. After the January 6th Capitol attacks, however, Trump was banned from Twitter and subsequently formed his own social media network, Truth Social, in 2022. Furthermore, since Elon Musk's acquisition of Twitter (and its renaming to X), some voters have chosen to migrate to other platforms like Bluesky Social or Truth Social. As a result, voters are now likely to have three different platforms from which they could choose to receive elections-related information. It is also likely, however, that voters are able to infer the purpose of our survey experiment if we were to provide posts from platforms other than X due to demand effects [@MummoloPeterson2019]. As a result, we have decided to select our posts for the treatment conditions solely from X; we would gather these new tweets for our treatment conditions closer to the 2026 general election. 
+
+# Reanalysis {#sec-analysis}
+
+To construct the composite measure of confidence (the main outcome variable), the authors estimated a structural equation model to predict a standardized outcome variable for confidence towards elections based on seven preregistered factors. The original construction of this outcome variable was performed in Stata; we used the `psych` and `lavaan` packages in R for this replication. While the coefficients of the structural equation model were slightly different from the results in the Online Appendix, we found that the constructed outcome variable had similar statistics to those reported in Table 1 of the original article after we centered it around the mean. Estimates are interpreted in terms of sample standard deviations [@Berlinskietal2023].
+
 ```{r}
-prop.table(table(df_combined$educ))
-prop.table(table(df_combined$agecat))
-prop.table(table(df_combined$gender))
-prop.table(table(df_combined$pid3))
+#| output: false
+#| echo: false
+#| message: false
+#| tbl-pos: H
+# Model Replication
+
+## Trust Elections
+trust <- lm_robust(trustelect1 ~ tweet4 + tweet8 + tweetcorrect, 
+                   data = df_combined, se_type = "HC2")
+trust_highlow <- lm_robust(trustelect1 ~ factor(tweet_treat), data = df_combined |>
+                             filter(tweet_treat %in% c(2, 3)), se_type = "HC2")
+trust_lowfact <- lm_robust(trustelect1 ~ factor(tweet_treat), data = df_combined |>
+                             filter(tweet_treat %in% c(2, 4)), se_type = "HC2")
+
+# Composite Measure
+composite <- lm_robust(zconf_trust ~ tweet4 + tweet8 + tweetcorrect, 
+                       data = df_combined, se_type = "HC2")
+comp_highlow <- lm_robust(zconf_trust ~ factor(tweet_treat), data = df_combined |>
+                             filter(tweet_treat %in% c(2, 3)), se_type = "HC2")
+comp_lowfact <- lm_robust(zconf_trust ~ factor(tweet_treat), data = df_combined |>
+                             filter(tweet_treat %in% c(2, 4)), se_type = "HC2")
+
+texreg(list(trust, trust_highlow, trust_lowfact, composite, comp_highlow, comp_lowfact), custom.header = list("Outcome: Trust in Elections" = 1:3, "Outcome: Composite Confidence Score" = 4:6), custom.model.names = c("Main Model", "High - Low Dose", "Low + Fact-Check - Low Dose", "Main Model", "High - Low Dose", "Low + Fact-Check - Low Dose"),
+       digits = 3, custom.coef.map = list("tweet4" = "Low dose (H1a)",
+                                       "tweet8" = "High dose (H2a)",
+                                       "tweetcorrect" = "Low dose + fact-check tweets (RQ1a)",
+                                       "factor(tweet_treat)3" = "High - Low Dose",
+                                       "factor(tweet_treat)4" = "Low + Fact-Check - Low Dose",
+                                       "(Intercept)" = "Constant"),
+       ci.force = FALSE, 
+       caption = "Replication Results of Table 2, Columns 5 and 8 of Berlinski et al. (2023). Simple difference-in-means estimates using OLS regression. 95% Confidence Intervals calculated using HC2 robust standard errors.",
+       caption.above = T,
+       float.pos = "h", sideways = T,
+       scalebox = 0.7)
 
 
 ```
+```{=latex}
+\begin{sidewaystable}[h]
+\caption{Replication Results of Table 2, Columns 5 and 8 of Berlinski et al. (2023). Simple difference-in-means estimates using OLS regression. 95\% Confidence Intervals calculated using HC2 robust standard errors.}
+\begin{center}
+\scalebox{0.7}{
+\begin{tabular}{l c c c c c c}
+\hline
+ & \multicolumn{3}{c}{Outcome: Trust in Elections} & \multicolumn{3}{c}{Outcome: Composite Confidence Score} \\
+\cline{2-4} \cline{5-7}
+ & Main Model & High - Low Dose & Low + Fact-Check - Low Dose & Main Model & High - Low Dose & Low + Fact-Check - Low Dose \\
+\hline
+Low dose (H1a)                      & $-0.155^{*}$        &                    &                    & $-0.147^{*}$        &                    &                    \\
+                                    & $ [-0.290; -0.020]$ &                    &                    & $ [-0.230; -0.064]$ &                    &                    \\
+High dose (H2a)                     & $-0.173^{*}$        &                    &                    & $-0.168^{*}$        &                    &                    \\
+                                    & $ [-0.311; -0.035]$ &                    &                    & $ [-0.253; -0.083]$ &                    &                    \\
+Low dose + fact-check tweets (RQ1a) & $-0.074$            &                    &                    & $-0.092^{*}$        &                    &                    \\
+                                    & $ [-0.211;  0.064]$ &                    &                    & $ [-0.177; -0.007]$ &                    &                    \\
+High - Low Dose                     &                     & $-0.018$           &                    &                     & $-0.021$           &                    \\
+                                    &                     & $ [-0.157; 0.121]$ &                    &                     & $ [-0.105; 0.064]$ &                    \\
+Low + Fact-Check - Low Dose         &                     &                    & $0.081$            &                     &                    & $0.055$            \\
+                                    &                     &                    & $ [-0.057; 0.220]$ &                     &                    & $ [-0.029; 0.139]$ \\
+Constant                            & $4.704^{*}$         & $4.549^{*}$        & $4.549^{*}$        & $0.102^{*}$         & $-0.045$           & $-0.045$           \\
+                                    & $ [ 4.609;  4.799]$ & $ [ 4.453; 4.645]$ & $ [ 4.453; 4.645]$ & $ [ 0.043;  0.161]$ & $ [-0.103; 0.013]$ & $ [-0.103; 0.013]$ \\
+\hline
+Num. obs.                           & $4277$              & $2145$             & $2143$             & $4280$              & $2146$             & $2145$             \\
+\hline
+\multicolumn{7}{l}{\scriptsize{$^*$ Null hypothesis value outside the confidence interval.}}
+\end{tabular}
+}
+\label{table:coefficients}
+\end{center}
+\end{sidewaystable}
+```
+
+```{=latex} 
+We successfully replicated the results of Table 2, Column 8, in our analysis; Table \ref{table:coefficients} displays the estimates of the ordinary least squares models specified in the original article.\footnote{While we only focused on the main outcome variable of the original study, we successfully replicated all of the tables in the main portion of the paper as well as the figures. The code used to replicate those tables can be found as `Replication.R` in the \href{https://github.com/andrewjliang/surveyexpreplication}{online GitHub repository} for this proposal.} The results suggest that exposure to unverified voter fraud claims decreases confidence in elections, regardless of the level of treatment given. For example, voters who were shown four tweets about election fraud saw a 0.147 sample standard-deviation decrease in confidence towards elections compared to the control group. In addition, those who were shown fact-checking tweets after the four election fraud tweets saw an approximately 0.092 standard-deviation decrease in confidence towards elections compared to the control group, indicating that fact-checks did not entirely reinstill voters' confidence in elections.
+``` 
+
+```{=latex}
+Since the authors only reported unadjusted estimates as part of their study, we also report covariate-adjusted estimates for our treatment effects in Table \ref{tbl:adjusted}. 
+```
+We controlled for factors like gender, race, education, age, political knowledge, martial status, and political interest, interacting our treatment indicators in accordance with @Lin2013. Our results are similar to the unadjusted estimates of the treatment effects, so we plan to measure these covariates prior to treatment in our replication (see the survey instrument for more details). 
+
+```{r}
+#| echo: false
+#| output: false
+adj <- df_combined |> # manual scaling instead of lm_lin for regression table
+  mutate(female = scale(female, scale = F), 
+         nonwhite = scale(nonwhite, scale = F),
+         college = scale(college, scale = F), 
+         age = scale(age, scale = F),
+         polknow = scale(polknow, scale = F),
+         married = scale(married, scale = F))
+
+comp_adj <- lm_lin(zconf_trust ~ factor(tweet_treat), ~ female + nonwhite + 
+                     college + age + polknow + married + highpolint, 
+                   data = df_combined, se_type = "HC2")
+comp_highlow_adj <- lm_lin(zconf_trust ~ tweet8, ~ female + nonwhite + college 
+                           + age + polknow + married, data = adj |>
+            filter(tweet_treat %in% c(2, 3)), se_type = "HC2")
+comp_lowfact_adj <- lm_lin(zconf_trust ~ tweetcorrect, ~ female + nonwhite + 
+                             college + age + polknow + married + highpolint, 
+                              data = adj |> filter(tweet_treat %in% c(2, 4)), 
+                              se_type = "HC2")
+
+trust_adj <- lm_lin(trustelect1 ~ factor(tweet_treat), ~ female + 
+                             nonwhite + college + age + polknow + married, 
+                           data = df_combined, se_type = "HC2")
+trust_highlow_adj <- lm_lin(trustelect1 ~ tweet8, ~ female + 
+                             nonwhite + college + age + polknow + married, 
+                           data = df_combined |> 
+                             filter(tweet_treat %in% c(2, 3)), se_type = "HC2")
+trust_lowfact_adj <- lm_lin(trustelect1 ~ tweetcorrect, ~ female + nonwhite + 
+                                                              college + age + 
+                                                              polknow + married, 
+                              data = adj |> 
+                                filter(tweet_treat %in% c(2, 4)), 
+                              se_type = "HC2")
+
+texreg(l = list(trust_adj, trust_highlow_adj, trust_lowfact_adj, comp_adj,
+                comp_highlow_adj, comp_lowfact_adj), 
+       custom.header = list("Outcome: Trust in Elections" = 1:3, 
+                            "Outcome: Composite Confidence Score" = 4:6), 
+       custom.model.names = c("Main Model", "High - Low Dose", 
+                              "Low + Fact-Check - Low Dose", 
+                              "Main Model", "High - Low Dose", 
+                              "Low + Fact-Check - Low Dose"),
+       custom.coef.map = list("factor(tweet_treat)2" = "Low Dose",
+                              "factor(tweet_treat)3" = "High Dose",
+                              "factor(tweet_treat)4" = "Low Dose + Fact-Check",
+                              "tweet8" = "High Dose - Low Dose",
+                              "tweetcorrect" = "Low Dose + Fact-Check Minus Low",
+                              "(Intercept)" = "Constant"), 
+       label = "tbl:adjusted",
+       float.pos = "h",
+       caption = "Covariate-adjusted OLS estimates of treatment effects, by outcome. 95% confidence intervals estimated with HC2 robust standard errors.",
+       caption.above = T,
+       digits = 3, sideways = T, scalebox = 0.7)
+```
+
+```{=latex}
+\begin{sidewaystable}[h]
+\caption{Covariate-adjusted OLS estimates of treatment effects, by outcome. 95\% confidence intervals estimated with HC2 robust standard errors.}
+\begin{center}
+\scalebox{0.7}{
+\begin{tabular}{l c c c c c c}
+\hline
+ & \multicolumn{3}{c}{Outcome: Trust in Elections} & \multicolumn{3}{c}{Outcome: Composite Confidence Score} \\
+\cline{2-4} \cline{5-7}
+ & Main Model & High - Low Dose & Low + Fact-Check - Low Dose & Main Model & High - Low Dose & Low + Fact-Check - Low Dose \\
+\hline
+Low Dose                        & $-0.178^{*}$        &                    &                    & $-0.162^{*}$        &                    &                    \\
+                                & $ [-0.311; -0.044]$ &                    &                    & $ [-0.243; -0.081]$ &                    &                    \\
+High Dose                       & $-0.178^{*}$        &                    &                    & $-0.171^{*}$        &                    &                    \\
+                                & $ [-0.314; -0.043]$ &                    &                    & $ [-0.254; -0.088]$ &                    &                    \\
+Low Dose + Fact-Check           & $-0.070$            &                    &                    & $-0.088^{*}$        &                    &                    \\
+                                & $ [-0.205;  0.065]$ &                    &                    & $ [-0.171; -0.005]$ &                    &                    \\
+High Dose - Low Dose            &                     & $-0.003$           &                    &                     & $-0.008$           &                    \\
+                                &                     & $ [-0.140; 0.135]$ &                    &                     & $ [-0.091; 0.074]$ &                    \\
+Low Dose + Fact-Check Minus Low &                     &                    & $0.110$            &                     &                    & $0.075$            \\
+                                &                     &                    & $ [-0.027; 0.247]$ &                     &                    & $ [-0.008; 0.158]$ \\
+Constant                        & $4.710^{*}$         & $4.541^{*}$        & $4.535^{*}$        & $0.105^{*}$         & $-0.050$           & $-0.055$           \\
+                                & $ [ 4.617;  4.802]$ & $ [ 4.446; 4.636]$ & $ [ 4.439; 4.630]$ & $ [ 0.048;  0.163]$ & $ [-0.107; 0.006]$ & $ [-0.112; 0.002]$ \\
+\hline
+Num. obs.                       & $4277$              & $2145$             & $2143$             & $4280$              & $2146$             & $2145$             \\
+\hline
+\multicolumn{7}{l}{\scriptsize{$^*$ Null hypothesis value outside the confidence interval.}}
+\end{tabular}
+}
+\label{tbl:adjusted}
+\end{center}
+\end{sidewaystable}
+```
 
 
-# Reanalysis
+![Replication of power analysis and sample sizes required for sufficiently powered effect sizes, by treatment condition. The dashed red line represents the conventional level of power (80%). The black line indicates the sample size of the original study ($N$ = 4,283), or the estimated effect sizes for each treatment condition.](pwr.png){#fig-pwr width=60%}
 
+The authors also reported results of a power analysis in the Online Appendix, but only to test whether the treatment effects were large enough to achieve sufficient power. We successfully replicated the results of that analysis according to the procedure outlined as Online Appendix F; our results are illustrated in the left three graphs of @fig-pwr. The treatment effects for the low and high treatment conditions are sufficiently powered, but the effect for the fact-checking treatment condition is underpowered.
 
-# Proposal
+Since the effect of fact-checking was a key focus of the original paper (and still is a main focus for our novel survey experiment), we conducted our own power analysis using the `DeclareDesign` package [@Blairetal2019] to understand the sample size we would hypothetically need for our observed estimate to have sufficient power. The right three graphs of @fig-pwr show that while the study of the composite confidence score was sufficiently powered to detect the estimated treatment effects for the low and high treatment conditions, we would need approximately 7,300 respondents for the fact-checking treatment effect size to be sufficiently powered as well. **Because of this we would suggest a sample of about 7,500 to 8,000 respondents for our replication.** 
+
+We would also like to test whether the effects are heterogeneous among voters who identify as Republicans, Democrats, and Independents. It has been well-established that Republicans and Democrats differ in both whether they believe election fraud has occurred [@Fahey2023], as well as their concern as to whether voters are able to cast their votes in elections [@Huberetal2025]. While the authors did test for heterogeneous treatment effects among party identification and approval of then-President Trump, their original hypotheses only suggested heterogeneous treatment effects between Republicans and non-Republicans; we believe that Republicans, Democrats, and Independents will react differently to both exposure to misinformation about election fraud as well as fact-checking against misinformation.
 
 
 {{< pagebreak >}}
