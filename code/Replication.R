@@ -433,7 +433,7 @@ fig3bcoefs <- as.data.frame(lincom(fig3b, c("tweet4 + tweet4:trump_disapprove",
          upper = as.numeric(`97.5 %`))
 
 
-ggplot(fig3acoefs, aes(y = factor(Treatment), color = factor(party), 
+hte_party <- ggplot(fig3acoefs, aes(y = factor(Treatment), color = factor(party), 
                        group = factor(party))) +
   geom_point(aes(x = Estimate), position = position_dodge(width = 0.4)) +
   geom_errorbarh(aes(xmin = lower, xmax = upper), width = 0.0, 
@@ -443,7 +443,15 @@ ggplot(fig3acoefs, aes(y = factor(Treatment), color = factor(party),
   scale_y_discrete(limits = c("Low dose", "High dose", 
                               "Low dose + fact-check tweets"),
                    expand = c(0, 0)) +
+  labs(x = "Estimated Treatment Effect, SDs",
+       y = "Treatment Condition",
+       color = "Party") +
+  scale_color_manual(values = c("Democrats" = "blue", "Republicans" = "red",
+                                "Independents" = "forestgreen")) +
   theme_classic()
+
+ggsave(here("docs", "hte_party.png"), plot = hte_party, 
+       units = "in", width = 8, height = 8)
 
 ggplot(fig3bcoefs, aes(y = factor(Treatment), color = factor(approval), 
                        group = factor(approval))) +
