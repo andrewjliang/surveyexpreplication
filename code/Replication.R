@@ -334,6 +334,9 @@ lincom(lm_robust(conf4 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
 ## Column 5 - Replicate
 trust <- lm_robust(trustelect1 ~ tweet4 + tweet8 + tweetcorrect, 
                    data = df_combined, se_type = "HC2")
+lincom(lm_robust(trustelect1 ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
+                 se_type = "HC2"), c("tweet8-tweet4",
+                                     "tweetcorrect-tweet4"))
 trust_highlow <- lm_robust(trustelect1 ~ factor(tweet_treat), 
                            data = df_combined |> 
                              filter(tweet_treat %in% c(2, 3)), se_type = "HC2")
@@ -362,6 +365,10 @@ composite <- lm_robust(zconf_trust ~ tweet4 + tweet8 + tweetcorrect,
                        data = df_combined, se_type = "HC2")
 summary(lm_robust(zconf_trust ~ tweet4 + tweet8 + tweetcorrect, 
                   data = df_combined, se_type = "HC2"))
+lincom(lm_robust(zconf_trust ~ tweet4 + tweet8 + tweetcorrect, data = df_combined,
+                 se_type = "HC2"), c("tweet8-tweet4",
+                                     "tweetcorrect-tweet4"))
+
 comp_highlow <- lm_robust(zconf_trust ~ factor(tweet_treat), 
                           data = df_combined |> 
                             filter(tweet_treat %in% c(2, 3)), se_type = "HC2")
