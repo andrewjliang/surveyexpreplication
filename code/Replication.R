@@ -255,6 +255,7 @@ df_combined$conspiracy_mean <- if_else(is.nan(df_combined$conspiracy_mean), NA,
                                        df_combined$conspiracy_mean)   
 
 
+
 # alpha 
 psych::alpha(df_combined |> dplyr::select(consp1, consp2, consp3))
 psych::alpha(df_combined |> dplyr::select(conf1, conf2, conf3, conf4))
@@ -274,10 +275,11 @@ sem_fit <- sem("Conf_trust =~ conf1 + conf2 + conf3 + conf4 +
                 trustelect1 + trustelect2 + trustelect3", 
     data = df_combined, missing = "fiml")
 
-fs <- lavPredict(sem_fit, type = "lv")
+fs <- as.vector(unnest(lavPredict(sem_fit, type = "lv")))
 
-df_combined$zconf_trust <- scale(fs)
+df_combined <- df_combined |> mutate(zconf_trust = unmatrix(scale(fs, center = T)))
 
+write_csv(df_combined, here("data", "df_processed.csv"))
 
 # Table 1 - Summary Statistics of Measures of Confidence
 summary <- df_combined |>
